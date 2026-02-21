@@ -1,0 +1,96 @@
+#include "app_http.h"
+#include "app_nvs.h"
+#include "app_core.h"
+#include "app_led.h"
+#include "esp_http_client.h"
+#include "esp_log.h"
+
+// NOTA: Se ha quitado esp_crt_bundle.h para facilitar compilación inicial
+
+static const char *TAG = "HTTP";
+
+void http_execute_task(void *pvParameters) {
+    int btn_id = (int)pvParameters;
+    button_config_t config;
+    
+    if(app_nvs_get_button_config(btn_id, &config) != ESP_OK) {
+        ESP_LOGE(TAG, "No config for btn %d", btn_id);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    if (strlen(config.url) < 5) {
+        ESP_LOGE(TAG, "Invalid URL");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    esp_http_client_config_t http_config = {
+        .url = config.url,
+        .timeout_ms = config.timeout_ms > 0 ? config.timeout_ms : 5000,
+        .method = (config.method == 1) ? HTTP_METHOD_POST : HTTP_METHOD_GET,
+        // .crt_bundle_attach = esp_crt_bundle_attach, // Deshabilitado temporalmente
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&http_config);
+
+    if (config.method == 1 && strlen(config.payload) > 0) {
+        esp_http_client_set_header(client, "Content-Type", "application/json");
+        esp_http_client_set_post_field(client, config.payload, strlen(config.payload));
+    }
+
+    app_set_state(STATE_HTTP_REQ);
+    
+    esp_err_t err = esp_http_client_perform(client);
+    
+    if (err == ESP_OK) {
+        int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "Status = %d, content_length = %lld", status, esp_http_client_get_content_length(client));
+        if (status >= 200 && status < 300) {
+            app_led_signal_success();
+        } else {
+            app_led_signal_error();
+        }
+    } else {
+        ESP_LOGE(TAG, "HTTP Request failed: %s", esp_err_to_name(err));
+        app_led_signal_error();
+    }
+
+    esp_http_client_cleanup(client);
+    app_set_state(STATE_NORMAL);
+    vTaskDelete(NULL);
+}
+
+void app_http_trigger(int btn_id) {
+    xTaskCreate(http_execute_task, "http_req", 8192, (void*)btn_id, 5, NULL);
+}
+
+// Ejecución síncrona para test desde la web (devuelve status HTTP o -1 si error)
+int app_http_test_sync(button_config_t *cfg) {
+    if (strlen(cfg->url) < 5) return -1;
+
+    esp_http_client_config_t http_config = {
+        .url = cfg->url,
+        .timeout_ms = cfg->timeout_ms > 0 ? cfg->timeout_ms : 5000,
+        .method = (cfg->method == 1) ? HTTP_METHOD_POST : HTTP_METHOD_GET,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&http_config);
+
+    if (cfg->method == 1 && strlen(cfg->payload) > 0) {
+        esp_http_client_set_header(client, "Content-Type", "application/json");
+        esp_http_client_set_post_field(client, cfg->payload, strlen(cfg->payload));
+    }
+
+    esp_err_t err = esp_http_client_perform(client);
+    int status = -1;
+    if (err == ESP_OK) {
+        status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "Test: status=%d", status);
+    } else {
+        ESP_LOGE(TAG, "Test failed: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    return status;
+}
