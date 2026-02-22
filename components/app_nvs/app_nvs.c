@@ -3,6 +3,7 @@
 #include "nvs.h"
 #include "esp_log.h"
 #include <string.h>
+#include <stdio.h> // Necesario para sprintf
 
 static const char *TAG = "NVS";
 
@@ -64,6 +65,7 @@ esp_err_t app_nvs_save_button(int btn_id, button_config_t *config) {
     nvs_set_i32(my_handle, "method", config->method);
     nvs_set_str(my_handle, "payload", config->payload);
     nvs_set_i32(my_handle, "timeout", config->timeout_ms);
+    nvs_set_i32(my_handle, "cooldown", config->cooldown_ms);
     nvs_commit(my_handle);
     nvs_close(my_handle);
     return ESP_OK;
@@ -88,11 +90,18 @@ esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config) {
         config->payload[0] = 0;
     }
 
-    int32_t timeout = 5000;
-    if (nvs_get_i32(my_handle, "timeout", &timeout) == ESP_OK) {
-        config->timeout_ms = timeout;
+    int32_t val = 5000;
+    if (nvs_get_i32(my_handle, "timeout", &val) == ESP_OK) {
+        config->timeout_ms = val;
     } else {
         config->timeout_ms = 5000;
+    }
+
+    val = 2000;
+    if (nvs_get_i32(my_handle, "cooldown", &val) == ESP_OK) {
+        config->cooldown_ms = val;
+    } else {
+        config->cooldown_ms = 2000;
     }
 
     nvs_close(my_handle);
@@ -113,7 +122,6 @@ esp_err_t app_nvs_save_admin(const char* user, const char* pass) {
 
 void app_nvs_get_admin(admin_config_t *config) {
     nvs_handle_t my_handle;
-    // Defaults
     strlcpy(config->user, "admin", sizeof(config->user));
     strlcpy(config->pass, "admin", sizeof(config->pass));
 

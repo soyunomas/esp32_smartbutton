@@ -42,6 +42,8 @@ button,.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:.95e
 .hidden{display:none}
 .login-box{max-width:320px;margin:60px auto 0}
 .login-box h1{margin-bottom:24px}
+/* Estilo para input file */
+input[type="file"]{padding:6px;cursor:pointer}
 </style>
 </head><body>
 
@@ -53,7 +55,7 @@ button,.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:.95e
 <label>Contraseña</label>
 <div class="pass-wrap">
 <input id="lpass" type="password" placeholder="Contraseña">
-<button class="pass-toggle" type="button" onclick="togVis('lpass')">👁</button>
+<button class="pass-toggle" type="button" onclick="togVis('lpass')">🗝️</button>
 </div>
 <button class="btn btn-login" onclick="doLogin()">Entrar</button>
 <div id="lmsg" class="msg"></div>
@@ -72,7 +74,7 @@ button,.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:.95e
 <label>Password</label>
 <div class="pass-wrap">
 <input id="pass" type="password" placeholder="Contraseña WiFi">
-<button class="pass-toggle" type="button" onclick="togVis('pass')">👁</button>
+<button class="pass-toggle" type="button" onclick="togVis('pass')">🗝️</button>
 </div>
 <button class="btn btn-save" onclick="saveWifi()">Guardar WiFi</button>
 <div id="wmsg" class="msg"></div>
@@ -100,6 +102,9 @@ button,.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:.95e
 <input id="btimeout" type="number" min="1" max="30" value="5" placeholder="5">
 </div>
 </div>
+<label>Cooldown (segundos)</label>
+<input id="bcooldown" type="number" step="0.5" min="0.5" max="60" value="2" placeholder="Tiempo entre pulsaciones">
+
 <div id="payload-row" class="payload-row">
 <label>Payload (JSON)</label>
 <input id="bpayload" placeholder='{"key":"value"}'>
@@ -112,20 +117,27 @@ button,.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:.95e
 
 <div class="card">
 <h2>Administracion</h2>
+<label>Actualizar Firmware (OTA)</label>
+<input type="file" id="otafile" accept=".bin">
+<button class="btn btn-save" onclick="doOta()">Subir Firmware</button>
+<div id="omsg" class="msg"></div>
+
+<div style="margin-top:20px;border-top:1px solid #0f3460;padding-top:10px">
 <label>Usuario</label>
 <input id="auser" placeholder="admin">
 <label>Nueva contraseña</label>
 <div class="pass-wrap">
 <input id="apass" type="password" placeholder="Nueva contraseña">
-<button class="pass-toggle" type="button" onclick="togVis('apass')">👁</button>
+<button class="pass-toggle" type="button" onclick="togVis('apass')">🗝️</button>
 </div>
 <label>Confirmar contraseña</label>
 <div class="pass-wrap">
 <input id="apass2" type="password" placeholder="Repetir contraseña">
-<button class="pass-toggle" type="button" onclick="togVis('apass2')">👁</button>
+<button class="pass-toggle" type="button" onclick="togVis('apass2')">🗝️</button>
 </div>
 <button class="btn btn-admin" onclick="saveAdmin()">Cambiar credenciales</button>
 <div id="amsg" class="msg"></div>
+</div>
 </div>
 </div>
 
@@ -215,7 +227,8 @@ function getBtnData(){
     url:document.getElementById('burl').value,
     method:parseInt(document.getElementById('bmethod').value),
     payload:document.getElementById('bpayload').value||'',
-    timeout:parseInt(document.getElementById('btimeout').value||'5')*1000
+    timeout:parseInt(document.getElementById('btimeout').value||'5')*1000,
+    cooldown:parseFloat(document.getElementById('bcooldown').value||'2')*1000
   };
 }
 function saveBtn(){
@@ -250,12 +263,15 @@ function loadBtn(n){
     document.getElementById('bpayload').value=d.payload||'';
     var t=d.timeout||5000;
     document.getElementById('btimeout').value=Math.round(t/1000);
+    var c=d.cooldown||2000;
+    document.getElementById('bcooldown').value=c/1000;
     togglePayload();
   }).catch(function(){
     document.getElementById('burl').value='';
     document.getElementById('bmethod').value=0;
     document.getElementById('bpayload').value='';
     document.getElementById('btimeout').value=5;
+    document.getElementById('bcooldown').value=2;
     togglePayload();
   });
 }
@@ -279,6 +295,32 @@ function saveAdmin(){
       showMsg('amsg',false,'Error al guardar');
     }
   }).catch(function(){showMsg('amsg',false,'Error de conexion')});
+}
+
+// Lógica OTA en cliente
+function doOta() {
+    var input = document.getElementById('otafile');
+    if (!input.files || !input.files[0]) {
+        showMsg('omsg', false, 'Selecciona un archivo .bin');
+        return;
+    }
+    var file = input.files[0];
+    showMsg('omsg', true, 'Subiendo firmware... NO APAGUES');
+    
+    authFetch('/api/ota', {
+        method: 'POST',
+        body: file // Enviar raw binary
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.ok) {
+            showMsg('omsg', true, 'Actualizado. Reiniciando...');
+            setTimeout(function() { location.reload(); }, 10000);
+        } else {
+            showMsg('omsg', false, 'Error al actualizar');
+        }
+    })
+    .catch(function() { showMsg('omsg', false, 'Error de conexión'); });
 }
 
 document.getElementById('lpass').addEventListener('keyup',function(e){

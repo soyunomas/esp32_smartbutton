@@ -3,7 +3,9 @@
 #include "app_core.h"
 #include "app_http.h"
 #include "app_led.h"
+#include "app_nvs.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #define BTN1_GPIO 4
 #define BTN2_GPIO 5
@@ -13,6 +15,36 @@
 #define WARN_TIME_MS 5000
 
 static const char *TAG = "BUTTONS";
+static int64_t last_trigger_time_1 = 0;
+static int64_t last_trigger_time_2 = 0;
+
+static bool can_trigger(int btn_id) {
+    // 1. Verificar Semáforo de Estado
+    if (app_get_state() == STATE_HTTP_REQ) {
+        ESP_LOGW(TAG, "Ignored: System Busy");
+        app_led_set_blink(50, 50); 
+        vTaskDelay(pdMS_TO_TICKS(200)); 
+        app_led_update_state(STATE_NORMAL);
+        return false;
+    }
+
+    // 2. Verificar Cooldown
+    button_config_t cfg;
+    if (app_nvs_get_button_config(btn_id, &cfg) != ESP_OK) {
+        cfg.cooldown_ms = 2000; 
+    }
+
+    int64_t now = esp_timer_get_time() / 1000;
+    int64_t *last_time = (btn_id == 1) ? &last_trigger_time_1 : &last_trigger_time_2;
+
+    if ((now - *last_time) < cfg.cooldown_ms) {
+        ESP_LOGW(TAG, "Ignored: Cooldown active");
+        return false;
+    }
+
+    *last_time = now;
+    return true;
+}
 
 static void button_task(void *arg) {
     uint32_t both_duration = 0;
@@ -24,7 +56,6 @@ static void button_task(void *arg) {
         int b1 = gpio_get_level(BTN1_GPIO);
         int b2 = gpio_get_level(BTN2_GPIO);
 
-        // Ambos presionados → lógica de reset
         if (b1 == 0 && b2 == 0) {
             both_held = true;
             both_duration += POLL_RATE_MS;
@@ -33,14 +64,11 @@ static void button_task(void *arg) {
                 app_set_state(STATE_FACTORY_RESET);
                 vTaskDelay(portMAX_DELAY);
             } else if (both_duration > WARN_TIME_MS) {
-                // 5-8s: parpadeo rápido
                 app_led_set_blink(100, 100);
             } else {
-                // 0-5s: parpadeo lento
                 app_led_set_blink(500, 500);
             }
         } else {
-            // Si estábamos en hold de reset y soltamos antes de tiempo
             if (both_held) {
                 both_held = false;
                 both_duration = 0;
@@ -50,25 +78,26 @@ static void button_task(void *arg) {
                 app_led_update_state(app_get_state());
             }
 
-            // Pulsación corta botón 1 (flanco de subida: estaba presionado, ahora suelto)
             if (prev_b1 == 0 && b1 == 1 && b2 == 1) {
                 if (b1_press_time >= DEBOUNCE_MS && app_get_state() == STATE_NORMAL) {
-                    ESP_LOGI(TAG, "BTN1 short press");
-                    app_http_trigger(1);
+                    if (can_trigger(1)) {
+                        ESP_LOGI(TAG, "BTN1 Triggered");
+                        app_http_trigger(1);
+                    }
                 }
                 b1_press_time = 0;
             }
 
-            // Pulsación corta botón 2 (flanco de subida)
             if (prev_b2 == 0 && b2 == 1 && b1 == 1) {
                 if (b2_press_time >= DEBOUNCE_MS && app_get_state() == STATE_NORMAL) {
-                    ESP_LOGI(TAG, "BTN2 short press");
-                    app_http_trigger(2);
+                    if (can_trigger(2)) {
+                        ESP_LOGI(TAG, "BTN2 Triggered");
+                        app_http_trigger(2);
+                    }
                 }
                 b2_press_time = 0;
             }
 
-            // Contar tiempo de pulsación individual
             if (b1 == 0 && b2 == 1) b1_press_time += POLL_RATE_MS;
             if (b2 == 0 && b1 == 1) b2_press_time += POLL_RATE_MS;
         }
@@ -88,5 +117,5 @@ void app_buttons_init(void) {
     };
     gpio_config(&io_conf);
 
-    xTaskCreate(button_task, "btn_task", 3072, NULL, 5, NULL);
+    xTaskCreate(button_task, "btn_task", 4096, NULL, 5, NULL);
 }
