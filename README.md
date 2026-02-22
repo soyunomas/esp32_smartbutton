@@ -62,8 +62,8 @@ Los botones son **normalmente abiertos** (NO). Al pulsar conectan el GPIO a GND.
 ### Clonar y compilar
 
 ```bash
-git clone https://github.com/soyunomas/smartbutton.git
-cd smartbutton
+git clone https://github.com/soyunomas/esp32_smartbutton.git
+cd esp32_smartbutton
 
 # Configurar entorno ESP-IDF (si no lo tienes en tu .bashrc/.zshrc)
 . $HOME/esp/esp-idf/export.sh
