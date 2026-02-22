@@ -65,6 +65,9 @@ input[type="file"]{padding:6px;cursor:pointer}
 .srow label{display:flex;justify-content:space-between}
 .srow input[type=range]{width:100%;margin-bottom:4px;-webkit-appearance:auto;background:transparent}
 .lprev{width:60px;height:60px;border-radius:50%;margin:0 auto 14px;border:2px solid #333;transition:background-color .2s}
+.chk-row{display:flex;align-items:center;margin-top:6px;margin-bottom:12px;gap:10px}
+.chk-row input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:#00d4ff;flex-shrink:0;-webkit-appearance:auto;appearance:auto}
+.chk-row label{display:inline;margin:0;cursor:pointer;color:#aaa;font-size:.85em;line-height:1.2}
 </style>
 </head><body>
 
@@ -89,12 +92,12 @@ input[type="file"]{padding:6px;cursor:pointer}
 <!-- WiFi -->
 <div id="s-wifi" class="sec act">
 <div class="card">
-<h2>📶 WiFi</h2>
+<h2>📶 WiFi a conectarse</h2>
 <button class="btn btn-p" onclick="scanWifi()">Buscar redes</button>
 <div id="wlist" class="wifi-list"></div>
-<label>SSID</label>
+<label>SSID de tu Red</label>
 <input id="ssid" placeholder="Nombre de la red">
-<label>Password</label>
+<label>Contraseña</label>
 <div class="pw">
 <input id="wpass" type="password" placeholder="Contraseña WiFi">
 <button class="pw-tog" type="button" onclick="togVis('wpass')">🗝️</button>
@@ -171,33 +174,57 @@ input[type="file"]{padding:6px;cursor:pointer}
 <!-- Sistema -->
 <div id="s-sys" class="sec">
 <div class="card">
-<h2>📡 Red</h2>
+<h2>🌐 Estado de Red</h2>
 <button class="btn btn-p" onclick="showNet()">Ver Info de Red</button>
 </div>
+
+<div class="card">
+<h2>📡 Ajustes del AP Local</h2>
+<label>SSID (En blanco para auto-generado)</label>
+<input id="ap_ssid" placeholder="SmartButton-XXXX">
+<label>Contraseña WPA2 (Min 8 chars, blanco = Abierto)</label>
+<div class="pw">
+<input id="ap_pass" type="password" placeholder="smartbutton">
+<button class="pw-tog" type="button" onclick="togVis('ap_pass')">🗝️</button>
+</div>
+<div class="chk-row">
+<input type="checkbox" id="pure_client">
+<label for="pure_client">Modo Cliente Puro (Ocultar el AP por seguridad tras conectar exitosamente a tu red WiFi)</label>
+</div>
+</div>
+
+<div class="card">
+<h2>🔑 Panel y Seguridad</h2>
+<label>Usuario Dashboard</label>
+<input id="auser" placeholder="admin">
+<label>Nueva Contraseña</label>
+<div class="pw">
+<input id="apass" type="password" placeholder="Nueva contraseña">
+<button class="pw-tog" type="button" onclick="togVis('apass')">🗝️</button>
+</div>
+<label>Confirmar Contraseña</label>
+<div class="pw">
+<input id="apass2" type="password" placeholder="Repetir contraseña">
+<button class="pw-tog" type="button" onclick="togVis('apass2')">🗝️</button>
+</div>
+<label>Tiempo retardo Factory Reset (seg)</label>
+<input id="areset" type="number" min="3" max="60" value="8">
+<button class="btn btn-danger" onclick="saveAdmin()">Guardar Ajustes y Reiniciar</button>
+<div id="amsg" class="msg"></div>
+</div>
+
+<div class="card">
+<h2>⚠️ Factory Reset</h2>
+<p style="font-size:.85em;color:#aaa;margin-bottom:10px">Borra toda la configuración y restaura valores de fábrica.</p>
+<button class="btn btn-danger" onclick="doFactoryReset()">Factory Reset</button>
+<div id="frmsg" class="msg"></div>
+</div>
+
 <div class="card">
 <h2>📦 Firmware OTA</h2>
 <input type="file" id="otafile" accept=".bin">
 <button class="btn btn-ok" onclick="doOta()">Subir Firmware</button>
 <div id="omsg" class="msg"></div>
-</div>
-<div class="card">
-<h2>🔑 Credenciales y Ajustes</h2>
-<label>Usuario</label>
-<input id="auser" placeholder="admin">
-<label>Nueva contraseña</label>
-<div class="pw">
-<input id="apass" type="password" placeholder="Nueva contraseña">
-<button class="pw-tog" type="button" onclick="togVis('apass')">🗝️</button>
-</div>
-<label>Confirmar contraseña</label>
-<div class="pw">
-<input id="apass2" type="password" placeholder="Repetir contraseña">
-<button class="pw-tog" type="button" onclick="togVis('apass2')">🗝️</button>
-</div>
-<label>Tiempo Factory Reset (seg)</label>
-<input id="areset" type="number" min="3" max="60" value="8">
-<button class="btn btn-danger" onclick="saveAdmin()">Guardar Ajustes</button>
-<div id="amsg" class="msg"></div>
 </div>
 </div>
 
@@ -285,20 +312,40 @@ function loadSys(){
 af('/api/admin').then(function(r){return r.json()}).then(function(d){
 if(d.user)$('auser').value=d.user;
 if(d.reset_time)$('areset').value=d.reset_time;
+if(d.ap_ssid !== undefined)$('ap_ssid').value=d.ap_ssid;
+if(d.ap_pass !== undefined)$('ap_pass').value=d.ap_pass;
+if(d.pure_client !== undefined)$('pure_client').checked=d.pure_client;
 }).catch(function(){});
 }
 function saveAdmin(){
-var u=$('auser').value,p=$('apass').value,p2=$('apass2').value,r=$('areset').value;
+var u=$('auser').value, p=$('apass').value, p2=$('apass2').value, r=$('areset').value;
+var aps=$('ap_ssid').value, app=$('ap_pass').value, pc=$('pure_client').checked;
+
 if(!u){msg('amsg',0,'Introduce un usuario');return;}
-if(p && p!==p2){msg('amsg',0,'Las contraseñas no coinciden');return;}
-if(p && p.length<4){msg('amsg',0,'Minimo 4 caracteres');return;}
-var body={user:u,reset_time:parseInt(r)};
+if(p && p!==p2){msg('amsg',0,'Las contraseñas de admin no coinciden');return;}
+if(p && p.length<4){msg('amsg',0,'Minimo 4 caracteres (admin)');return;}
+if(app && app.length>0 && app.length<8){msg('amsg',0,'Clave de AP debe tener mínimo 8 caracteres');return;}
+
+var body={user:u, reset_time:parseInt(r), ap_ssid:aps, ap_pass:app, pure_client:pc};
 if(p)body.pass=p;
-af('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
-}).then(function(res){return res.json()}).then(function(d){
-if(d.ok){curP=p?p:curP;A='Basic '+btoa(u+':'+curP);msg('amsg',1,'Ajustes guardados');$('apass').value='';$('apass2').value='';}
-else msg('amsg',0,'Error al guardar');
+
+af('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+.then(function(res){return res.json()}).then(function(d){
+if(d.ok){
+curP=p?p:curP; A='Basic '+btoa(u+':'+curP);
+msg('amsg',1,'Ajustes guardados. Reiniciando el dispositivo...');
+$('apass').value='';$('apass2').value='';
+setTimeout(function(){location.reload()},4000);
+}else msg('amsg',0,'Error al guardar');
 }).catch(function(){msg('amsg',0,'Error de conexion')});
+}
+function doFactoryReset(){
+if(!confirm('¿Estás seguro? Se borrarán TODOS los ajustes.'))return;
+msg('frmsg',1,'Reseteando...');
+af('/api/factory_reset',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+if(d.ok)msg('frmsg',1,'Reiniciando con valores de fábrica...');
+else msg('frmsg',0,'Error');
+}).catch(function(){msg('frmsg',0,'Error de conexion');});
 }
 function doOta(){
 var f=$('otafile');if(!f.files||!f.files[0]){msg('omsg',0,'Selecciona un archivo .bin');return;}

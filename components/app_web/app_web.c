@@ -278,7 +278,6 @@ static esp_err_t netinfo_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-// NUEVO: Obtener la configuración actual del Admin y Sistema
 static esp_err_t admin_get_handler(httpd_req_t *req) {
     if (!check_auth(req)) return send_auth_required(req);
     admin_config_t admin;
@@ -287,6 +286,9 @@ static esp_err_t admin_get_handler(httpd_req_t *req) {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "user", admin.user);
     cJSON_AddNumberToObject(root, "reset_time", admin.reset_time_ms / 1000);
+    cJSON_AddStringToObject(root, "ap_ssid", admin.ap_ssid);
+    cJSON_AddStringToObject(root, "ap_pass", admin.ap_pass);
+    cJSON_AddBoolToObject(root, "pure_client", admin.pure_client);
     
     char *json = cJSON_PrintUnformatted(root);
     httpd_resp_set_type(req, "application/json");
@@ -298,7 +300,7 @@ static esp_err_t admin_get_handler(httpd_req_t *req) {
 
 static esp_err_t admin_post_handler(httpd_req_t *req) {
     if (!check_auth(req)) return send_auth_required(req);
-    char buf[256];
+    char buf[512];
     int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) return ESP_FAIL;
     buf[ret] = 0;
@@ -312,25 +314,45 @@ static esp_err_t admin_post_handler(httpd_req_t *req) {
     cJSON *juser = cJSON_GetObjectItem(root, "user");
     cJSON *jpass = cJSON_GetObjectItem(root, "pass");
     cJSON *jreset = cJSON_GetObjectItem(root, "reset_time");
+    cJSON *jap_ssid = cJSON_GetObjectItem(root, "ap_ssid");
+    cJSON *jap_pass = cJSON_GetObjectItem(root, "ap_pass");
+    cJSON *jpure = cJSON_GetObjectItem(root, "pure_client");
 
     admin_config_t current;
     app_nvs_get_admin(&current);
 
-    // Permite actualizaciones parciales
     const char *user = (cJSON_IsString(juser) && juser->valuestring[0]) ? juser->valuestring : current.user;
     const char *pass = (cJSON_IsString(jpass) && jpass->valuestring[0]) ? jpass->valuestring : current.pass;
     int reset_ms = cJSON_IsNumber(jreset) ? jreset->valueint * 1000 : current.reset_time_ms;
+    
+    const char *ap_ssid = cJSON_IsString(jap_ssid) ? jap_ssid->valuestring : current.ap_ssid;
+    const char *ap_pass = cJSON_IsString(jap_pass) ? jap_pass->valuestring : current.ap_pass;
+    bool pure_client = cJSON_IsBool(jpure) ? cJSON_IsTrue(jpure) : current.pure_client;
 
-    // Limites de seguridad para Factory Reset (3 a 60 segs)
     if (reset_ms < 3000) reset_ms = 3000;
     if (reset_ms > 60000) reset_ms = 60000;
 
-    app_nvs_save_admin(user, pass, reset_ms);
-    ESP_LOGI(TAG, "Admin credentials/settings updated");
+    app_nvs_save_admin(user, pass, reset_ms, ap_ssid, ap_pass, pure_client);
+    ESP_LOGI(TAG, "Admin credentials & AP settings updated");
+    
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
 
     cJSON_Delete(root);
+
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    esp_restart();
+    return ESP_OK;
+}
+
+static esp_err_t factory_reset_post_handler(httpd_req_t *req) {
+    if (!check_auth(req)) return send_auth_required(req);
+    ESP_LOGW(TAG, "Factory reset requested from web");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    app_nvs_clear_all();
+    esp_restart();
     return ESP_OK;
 }
 
@@ -401,7 +423,7 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
 
 void app_web_start(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 16;
+    config.max_uri_handlers = 24;
     config.stack_size = 8192;
     httpd_handle_t server = NULL;
 
@@ -438,6 +460,9 @@ void app_web_start(void) {
 
         httpd_uri_t uri_admin_post = { .uri = "/api/admin", .method = HTTP_POST, .handler = admin_post_handler };
         httpd_register_uri_handler(server, &uri_admin_post);
+
+        httpd_uri_t uri_freset = { .uri = "/api/factory_reset", .method = HTTP_POST, .handler = factory_reset_post_handler };
+        httpd_register_uri_handler(server, &uri_freset);
 
         httpd_uri_t uri_ota = { .uri = "/api/ota", .method = HTTP_POST, .handler = ota_post_handler };
         httpd_register_uri_handler(server, &uri_ota);

@@ -9,7 +9,7 @@ typedef struct {
     char password[64];
 } nvs_wifi_config_t;
 
-// Estructura Botón (Incluye el nuevo cooldown_ms)
+// Estructura Botón
 typedef struct {
     char url[512];
     int method; // 0=GET, 1=POST
@@ -18,11 +18,14 @@ typedef struct {
     int cooldown_ms; 
 } button_config_t;
 
-// Estructura Admin
+// Estructura Admin & Sistema (Ampliando configuraciones de AP)
 typedef struct {
     char user[32];
     char pass[64];
-    int reset_time_ms; // NUEVO: Tiempo configurable de factory reset
+    int reset_time_ms;
+    char ap_ssid[32];
+    char ap_pass[64];
+    bool pure_client;  // NUEVO: Modo STA puro al conectar
 } admin_config_t;
 
 void app_nvs_init(void);
@@ -37,5 +40,5 @@ esp_err_t app_nvs_save_button(int btn_id, button_config_t *config);
 esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config);
 
 // Funciones Admin
-esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms);
+esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client);
 void app_nvs_get_admin(admin_config_t *config);

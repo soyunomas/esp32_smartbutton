@@ -3,7 +3,7 @@
 #include "nvs.h"
 #include "esp_log.h"
 #include <string.h>
-#include <stdio.h> // Necesario para sprintf
+#include <stdio.h> 
 
 static const char *TAG = "NVS";
 
@@ -108,7 +108,7 @@ esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config) {
     return ESP_OK;
 }
 
-esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms) {
+esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client) {
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("admin_conf", NVS_READWRITE, &my_handle);
     if (err != ESP_OK) return err;
@@ -116,6 +116,10 @@ esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_
     nvs_set_str(my_handle, "user", user);
     nvs_set_str(my_handle, "pass", pass);
     nvs_set_i32(my_handle, "reset_ms", reset_time_ms);
+    nvs_set_str(my_handle, "ap_ssid", ap_ssid);
+    nvs_set_str(my_handle, "ap_pass", ap_pass);
+    nvs_set_u8(my_handle, "pure_cli", pure_client ? 1 : 0);
+    
     nvs_commit(my_handle);
     nvs_close(my_handle);
     return ESP_OK;
@@ -123,21 +127,31 @@ esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_
 
 void app_nvs_get_admin(admin_config_t *config) {
     nvs_handle_t my_handle;
+    // Valores de fábrica / Por defecto
     strlcpy(config->user, "admin", sizeof(config->user));
     strlcpy(config->pass, "admin", sizeof(config->pass));
-    config->reset_time_ms = 8000; // Valor por defecto 8s
+    config->reset_time_ms = 8000;
+    config->ap_ssid[0] = '\0'; // Vacío indicará que se auto-genere con la MAC
+    strlcpy(config->ap_pass, "smartbutton", sizeof(config->ap_pass)); // Clave por defecto
+    config->pure_client = false;
 
     if (nvs_open("admin_conf", NVS_READONLY, &my_handle) != ESP_OK) return;
 
-    size_t size = sizeof(config->user);
-    nvs_get_str(my_handle, "user", config->user, &size);
-
-    size = sizeof(config->pass);
-    nvs_get_str(my_handle, "pass", config->pass, &size);
-
-    int32_t val = 8000;
-    if (nvs_get_i32(my_handle, "reset_ms", &val) == ESP_OK) {
-        config->reset_time_ms = val;
+    size_t size = sizeof(config->user); nvs_get_str(my_handle, "user", config->user, &size);
+    size = sizeof(config->pass); nvs_get_str(my_handle, "pass", config->pass, &size);
+    
+    // Solución al warning: usamos un temporal int32_t explícito
+    int32_t temp_reset_ms = 8000;
+    if (nvs_get_i32(my_handle, "reset_ms", &temp_reset_ms) == ESP_OK) {
+        config->reset_time_ms = (int)temp_reset_ms;
+    }
+    
+    size = sizeof(config->ap_ssid); nvs_get_str(my_handle, "ap_ssid", config->ap_ssid, &size);
+    size = sizeof(config->ap_pass); nvs_get_str(my_handle, "ap_pass", config->ap_pass, &size);
+    
+    uint8_t pc = 0;
+    if (nvs_get_u8(my_handle, "pure_cli", &pc) == ESP_OK) {
+        config->pure_client = (pc == 1);
     }
 
     nvs_close(my_handle);

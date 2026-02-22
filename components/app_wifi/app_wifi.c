@@ -28,7 +28,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
             esp_wifi_connect();
             xEventGroupSetBits(app_event_group, EVENT_WIFI_LOST);
         } else {
-            ESP_LOGW(TAG, "STA failed after %d retries, switching to AP mode", STA_MAX_RETRIES);
+            // Fallback de seguridad vital: Si falla conectarse, garantizamos abrir el APSTA
+            ESP_LOGW(TAG, "STA failed after %d retries, fallback to AP mode", STA_MAX_RETRIES);
             app_wifi_switch_to_ap();
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
@@ -54,39 +55,64 @@ void app_wifi_start_sta(void) {
         return;
     }
 
+    admin_config_t admin;
+    app_nvs_get_admin(&admin);
+
     wifi_config_t wifi_config = {0};
     strlcpy((char*)wifi_config.sta.ssid, nvs_conf.ssid, sizeof(wifi_config.sta.ssid));
     strlcpy((char*)wifi_config.sta.password, nvs_conf.password, sizeof(wifi_config.sta.password));
 
     sta_retry_count = 0;
 
-    // Siempre APSTA: mantiene AP de configuración accesible
-    start_ap_mode();
+    // Configuración estratégica STA puro vs APSTA
+    if (admin.pure_client) {
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+        ESP_LOGI(TAG, "Starting STA in pure client mode (AP Disabled)");
+    } else {
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+        start_ap_mode();
+        app_dns_start();
+    }
+
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    app_dns_start();
     esp_wifi_connect();
 
-    ESP_LOGI(TAG, "STA connecting to: %s (AP also active)", nvs_conf.ssid);
+    ESP_LOGI(TAG, "STA connecting to: %s", nvs_conf.ssid);
 }
 
 static void start_ap_mode(void) {
+    admin_config_t admin;
+    app_nvs_get_admin(&admin);
+
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
     char ssid[32];
-    sprintf(ssid, "SmartButton-%02X%02X", mac[4], mac[5]);
+    
+    if (strlen(admin.ap_ssid) > 0) {
+        strlcpy(ssid, admin.ap_ssid, sizeof(ssid));
+    } else {
+        // Fallback SSID dinámico
+        sprintf(ssid, "SmartButton-%02X%02X", mac[4], mac[5]);
+    }
 
     wifi_config_t wifi_config = {0};
     wifi_config.ap.channel = 1;
     wifi_config.ap.max_connection = 4;
-    wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     strlcpy((char*)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid));
     wifi_config.ap.ssid_len = strlen(ssid);
 
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    // Sistema Híbrido: Si la contraseña tiene más de 8 chars ciframos WPA2
+    if (strlen(admin.ap_pass) >= 8) {
+        wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+        strlcpy((char*)wifi_config.ap.password, admin.ap_pass, sizeof(wifi_config.ap.password));
+    } else {
+        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+    }
 
-    ESP_LOGI(TAG, "AP Started. SSID: %s", ssid);
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    ESP_LOGI(TAG, "AP Started. SSID: %s | Mode: %s", ssid, 
+             wifi_config.ap.authmode == WIFI_AUTH_OPEN ? "OPEN" : "WPA2");
 }
 
 void app_wifi_start_ap(void) {
@@ -98,6 +124,7 @@ void app_wifi_start_ap(void) {
     esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL);
     esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL);
 
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     start_ap_mode();
     ESP_ERROR_CHECK(esp_wifi_start());
 
@@ -107,6 +134,8 @@ void app_wifi_start_ap(void) {
 void app_wifi_switch_to_ap(void) {
     ESP_LOGW(TAG, "Switching to AP mode (fallback)");
     esp_wifi_disconnect();
+    // Forzamos un reinicio seguro de red levantando el modo híbrido
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     start_ap_mode();
     app_dns_start();
     app_set_state(STATE_AP_MODE);
@@ -148,7 +177,6 @@ cJSON *app_wifi_get_netinfo(void) {
     cJSON *root = cJSON_CreateObject();
     char buf[64];
 
-    // Info STA
     esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     if (sta) {
         esp_netif_ip_info_t ip_info;
@@ -167,21 +195,18 @@ cJSON *app_wifi_get_netinfo(void) {
         }
     }
 
-    // MAC STA
     uint8_t mac[6];
     if (esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK) {
         sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
         cJSON_AddStringToObject(root, "mac", buf);
     }
 
-    // SSID conectado
     wifi_ap_record_t ap;
     if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
         cJSON_AddStringToObject(root, "ssid", (char*)ap.ssid);
         cJSON_AddNumberToObject(root, "rssi", ap.rssi);
     }
 
-    // IP del AP
     esp_netif_t *ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
     if (ap_netif) {
         esp_netif_ip_info_t ap_ip;
