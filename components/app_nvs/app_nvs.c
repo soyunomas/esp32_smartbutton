@@ -108,13 +108,14 @@ esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config) {
     return ESP_OK;
 }
 
-esp_err_t app_nvs_save_admin(const char* user, const char* pass) {
+esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms) {
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("admin_conf", NVS_READWRITE, &my_handle);
     if (err != ESP_OK) return err;
 
     nvs_set_str(my_handle, "user", user);
     nvs_set_str(my_handle, "pass", pass);
+    nvs_set_i32(my_handle, "reset_ms", reset_time_ms);
     nvs_commit(my_handle);
     nvs_close(my_handle);
     return ESP_OK;
@@ -124,6 +125,7 @@ void app_nvs_get_admin(admin_config_t *config) {
     nvs_handle_t my_handle;
     strlcpy(config->user, "admin", sizeof(config->user));
     strlcpy(config->pass, "admin", sizeof(config->pass));
+    config->reset_time_ms = 8000; // Valor por defecto 8s
 
     if (nvs_open("admin_conf", NVS_READONLY, &my_handle) != ESP_OK) return;
 
@@ -132,6 +134,11 @@ void app_nvs_get_admin(admin_config_t *config) {
 
     size = sizeof(config->pass);
     nvs_get_str(my_handle, "pass", config->pass, &size);
+
+    int32_t val = 8000;
+    if (nvs_get_i32(my_handle, "reset_ms", &val) == ESP_OK) {
+        config->reset_time_ms = val;
+    }
 
     nvs_close(my_handle);
 }

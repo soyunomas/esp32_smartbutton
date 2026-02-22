@@ -4,9 +4,11 @@
 #include "app_dns.h"
 #include "esp_wifi.h"
 #include "esp_mac.h"
+#include "esp_netif.h"
 #include "esp_log.h"
 #include "cJSON.h"
 #include <string.h>
+#include <stdio.h>
 
 static const char *TAG = "WIFI";
 #define MAX_SCAN_RESULTS 15
@@ -140,4 +142,54 @@ cJSON *app_wifi_scan(void) {
 
     free(ap_list);
     return arr;
+}
+
+cJSON *app_wifi_get_netinfo(void) {
+    cJSON *root = cJSON_CreateObject();
+    char buf[64];
+
+    // Info STA
+    esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (sta) {
+        esp_netif_ip_info_t ip_info;
+        if (esp_netif_get_ip_info(sta, &ip_info) == ESP_OK) {
+            sprintf(buf, IPSTR, IP2STR(&ip_info.ip));
+            cJSON_AddStringToObject(root, "ip", buf);
+            sprintf(buf, IPSTR, IP2STR(&ip_info.netmask));
+            cJSON_AddStringToObject(root, "mask", buf);
+            sprintf(buf, IPSTR, IP2STR(&ip_info.gw));
+            cJSON_AddStringToObject(root, "gw", buf);
+        }
+        esp_netif_dns_info_t dns;
+        if (esp_netif_get_dns_info(sta, ESP_NETIF_DNS_MAIN, &dns) == ESP_OK) {
+            sprintf(buf, IPSTR, IP2STR(&dns.ip.u_addr.ip4));
+            cJSON_AddStringToObject(root, "dns", buf);
+        }
+    }
+
+    // MAC STA
+    uint8_t mac[6];
+    if (esp_read_mac(mac, ESP_MAC_WIFI_STA) == ESP_OK) {
+        sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+        cJSON_AddStringToObject(root, "mac", buf);
+    }
+
+    // SSID conectado
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+        cJSON_AddStringToObject(root, "ssid", (char*)ap.ssid);
+        cJSON_AddNumberToObject(root, "rssi", ap.rssi);
+    }
+
+    // IP del AP
+    esp_netif_t *ap_netif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+    if (ap_netif) {
+        esp_netif_ip_info_t ap_ip;
+        if (esp_netif_get_ip_info(ap_netif, &ap_ip) == ESP_OK) {
+            sprintf(buf, IPSTR, IP2STR(&ap_ip.ip));
+            cJSON_AddStringToObject(root, "ap_ip", buf);
+        }
+    }
+
+    return root;
 }

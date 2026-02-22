@@ -5,11 +5,12 @@
 #include "app_wifi.h"
 #include "app_core.h"
 #include "app_http.h"
+#include "app_led.h"
 #include "esp_log.h"
 #include "cJSON.h"
 #include "mbedtls/base64.h"
-#include "esp_ota_ops.h"       // NECESARIO PARA OTA
-#include "esp_partition.h"     // NECESARIO PARA OTA
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
 #include <string.h>
 
 static const char *TAG = "WEB";
@@ -116,7 +117,7 @@ static esp_err_t wifi_post_handler(httpd_req_t *req) {
 
 static esp_err_t btn_post_handler(httpd_req_t *req) {
     if (!check_auth(req)) return send_auth_required(req);
-    char buf[512];
+    char buf[1024];
     int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) return ESP_FAIL;
     buf[ret] = 0;
@@ -194,7 +195,7 @@ static esp_err_t btn_get_handler(httpd_req_t *req) {
 
 static esp_err_t test_post_handler(httpd_req_t *req) {
     if (!check_auth(req)) return send_auth_required(req);
-    char buf[512];
+    char buf[1024];
     int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) return ESP_FAIL;
     buf[ret] = 0;
@@ -234,6 +235,67 @@ static esp_err_t test_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+static esp_err_t led_post_handler(httpd_req_t *req) {
+    if (!check_auth(req)) return send_auth_required(req);
+    char buf[128];
+    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
+    if (ret <= 0) return ESP_FAIL;
+    buf[ret] = 0;
+
+    cJSON *root = cJSON_Parse(buf);
+    if (!root) {
+        httpd_resp_send(req, "{\"ok\":false}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    cJSON *joff = cJSON_GetObjectItem(root, "off");
+    if (cJSON_IsTrue(joff)) {
+        app_led_off();
+    } else {
+        cJSON *jr = cJSON_GetObjectItem(root, "r");
+        cJSON *jg = cJSON_GetObjectItem(root, "g");
+        cJSON *jb = cJSON_GetObjectItem(root, "b");
+        uint8_t r = cJSON_IsNumber(jr) ? (uint8_t)jr->valueint : 0;
+        uint8_t g = cJSON_IsNumber(jg) ? (uint8_t)jg->valueint : 0;
+        uint8_t b = cJSON_IsNumber(jb) ? (uint8_t)jb->valueint : 0;
+        app_led_set_color(r, g, b);
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
+    cJSON_Delete(root);
+    return ESP_OK;
+}
+
+static esp_err_t netinfo_get_handler(httpd_req_t *req) {
+    if (!check_auth(req)) return send_auth_required(req);
+    cJSON *info = app_wifi_get_netinfo();
+    char *json = cJSON_PrintUnformatted(info);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
+    free(json);
+    cJSON_Delete(info);
+    return ESP_OK;
+}
+
+// NUEVO: Obtener la configuración actual del Admin y Sistema
+static esp_err_t admin_get_handler(httpd_req_t *req) {
+    if (!check_auth(req)) return send_auth_required(req);
+    admin_config_t admin;
+    app_nvs_get_admin(&admin);
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "user", admin.user);
+    cJSON_AddNumberToObject(root, "reset_time", admin.reset_time_ms / 1000);
+    
+    char *json = cJSON_PrintUnformatted(root);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
+    free(json);
+    cJSON_Delete(root);
+    return ESP_OK;
+}
+
 static esp_err_t admin_post_handler(httpd_req_t *req) {
     if (!check_auth(req)) return send_auth_required(req);
     char buf[256];
@@ -249,30 +311,36 @@ static esp_err_t admin_post_handler(httpd_req_t *req) {
 
     cJSON *juser = cJSON_GetObjectItem(root, "user");
     cJSON *jpass = cJSON_GetObjectItem(root, "pass");
+    cJSON *jreset = cJSON_GetObjectItem(root, "reset_time");
 
-    if (cJSON_IsString(juser) && juser->valuestring[0] &&
-        cJSON_IsString(jpass) && jpass->valuestring[0]) {
-        app_nvs_save_admin(juser->valuestring, jpass->valuestring);
-        ESP_LOGI(TAG, "Admin credentials updated");
-        httpd_resp_set_type(req, "application/json");
-        httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
-    } else {
-        httpd_resp_set_type(req, "application/json");
-        httpd_resp_send(req, "{\"ok\":false}", HTTPD_RESP_USE_STRLEN);
-    }
+    admin_config_t current;
+    app_nvs_get_admin(&current);
+
+    // Permite actualizaciones parciales
+    const char *user = (cJSON_IsString(juser) && juser->valuestring[0]) ? juser->valuestring : current.user;
+    const char *pass = (cJSON_IsString(jpass) && jpass->valuestring[0]) ? jpass->valuestring : current.pass;
+    int reset_ms = cJSON_IsNumber(jreset) ? jreset->valueint * 1000 : current.reset_time_ms;
+
+    // Limites de seguridad para Factory Reset (3 a 60 segs)
+    if (reset_ms < 3000) reset_ms = 3000;
+    if (reset_ms > 60000) reset_ms = 60000;
+
+    app_nvs_save_admin(user, pass, reset_ms);
+    ESP_LOGI(TAG, "Admin credentials/settings updated");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
 
     cJSON_Delete(root);
     return ESP_OK;
 }
 
-// --- LOGICA DE ACTUALIZACIÓN OTA ---
 static esp_err_t ota_post_handler(httpd_req_t *req) {
     if (!check_auth(req)) return send_auth_required(req);
 
     esp_ota_handle_t update_handle = 0;
     const esp_partition_t *update_partition = NULL;
     char buf[1024];
-    int ret, remaining = req->content_len;
+    int remaining = req->content_len;
 
     update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
@@ -326,7 +394,6 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
     
-    // Dar tiempo a enviar la respuesta antes de reiniciar
     vTaskDelay(pdMS_TO_TICKS(1000));
     esp_restart();
     return ESP_OK;
@@ -360,10 +427,18 @@ void app_web_start(void) {
         httpd_uri_t uri_test = { .uri = "/api/test", .method = HTTP_POST, .handler = test_post_handler };
         httpd_register_uri_handler(server, &uri_test);
 
-        httpd_uri_t uri_admin = { .uri = "/api/admin", .method = HTTP_POST, .handler = admin_post_handler };
-        httpd_register_uri_handler(server, &uri_admin);
+        httpd_uri_t uri_led = { .uri = "/api/led", .method = HTTP_POST, .handler = led_post_handler };
+        httpd_register_uri_handler(server, &uri_led);
 
-        // NUEVO: URI para OTA
+        httpd_uri_t uri_netinfo = { .uri = "/api/netinfo", .method = HTTP_GET, .handler = netinfo_get_handler };
+        httpd_register_uri_handler(server, &uri_netinfo);
+
+        httpd_uri_t uri_admin_get = { .uri = "/api/admin", .method = HTTP_GET, .handler = admin_get_handler };
+        httpd_register_uri_handler(server, &uri_admin_get);
+
+        httpd_uri_t uri_admin_post = { .uri = "/api/admin", .method = HTTP_POST, .handler = admin_post_handler };
+        httpd_register_uri_handler(server, &uri_admin_post);
+
         httpd_uri_t uri_ota = { .uri = "/api/ota", .method = HTTP_POST, .handler = ota_post_handler };
         httpd_register_uri_handler(server, &uri_ota);
 

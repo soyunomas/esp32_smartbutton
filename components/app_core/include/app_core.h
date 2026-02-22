@@ -19,7 +19,10 @@ typedef enum {
 #define EVENT_BUTTON_TRIGGER    (1 << 2)
 #define EVENT_FACTORY_RESET     (1 << 3)
 
+typedef void (*state_change_cb_t)(system_state_t);
+
 extern EventGroupHandle_t app_event_group;
 
 void app_set_state(system_state_t new_state);
 system_state_t app_get_state(void);
+void app_set_state_callback(state_change_cb_t cb);

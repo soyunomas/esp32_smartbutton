@@ -15,6 +15,11 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     app_nvs_init();
     app_event_group = xEventGroupCreate();
+    
+    // Anclamos la respuesta del LED de forma global 
+    // Ahora, los cambios de app_set_state(...) reaccionarán visualmente instantáneo
+    app_set_state_callback(app_led_update_state);
+    
     app_led_init();
     app_buttons_init();
 
@@ -35,7 +40,6 @@ void app_main(void) {
     // Loop principal (Watchdog lógico)
     while (1) {
         if (app_get_state() == STATE_FACTORY_RESET) {
-            app_led_set_blink(50, 50);
             ESP_LOGW("MAIN", "ERASING NVS...");
             app_nvs_clear_all();
             vTaskDelay(pdMS_TO_TICKS(1000));

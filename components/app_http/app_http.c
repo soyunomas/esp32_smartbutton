@@ -5,22 +5,30 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 
-// NOTA: Se ha quitado esp_crt_bundle.h para facilitar compilación inicial
+#include "esp_crt_bundle.h"
 
 static const char *TAG = "HTTP";
 
 void http_execute_task(void *pvParameters) {
+    // Al empezar la tarea, inmediatamente confirmamos visualmente que la pulsación
+    // se procesó marcando el estado.
+    app_set_state(STATE_HTTP_REQ);
+
     int btn_id = (int)pvParameters;
     button_config_t config;
     
     if(app_nvs_get_button_config(btn_id, &config) != ESP_OK) {
         ESP_LOGE(TAG, "No config for btn %d", btn_id);
+        app_led_signal_error();
+        app_set_state(STATE_NORMAL);
         vTaskDelete(NULL);
         return;
     }
 
     if (strlen(config.url) < 5) {
         ESP_LOGE(TAG, "Invalid URL");
+        app_led_signal_error();
+        app_set_state(STATE_NORMAL);
         vTaskDelete(NULL);
         return;
     }
@@ -29,7 +37,7 @@ void http_execute_task(void *pvParameters) {
         .url = config.url,
         .timeout_ms = config.timeout_ms > 0 ? config.timeout_ms : 5000,
         .method = (config.method == 1) ? HTTP_METHOD_POST : HTTP_METHOD_GET,
-        // .crt_bundle_attach = esp_crt_bundle_attach, // Deshabilitado temporalmente
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&http_config);
@@ -38,8 +46,6 @@ void http_execute_task(void *pvParameters) {
         esp_http_client_set_header(client, "Content-Type", "application/json");
         esp_http_client_set_post_field(client, config.payload, strlen(config.payload));
     }
-
-    app_set_state(STATE_HTTP_REQ);
     
     esp_err_t err = esp_http_client_perform(client);
     
@@ -57,12 +63,12 @@ void http_execute_task(void *pvParameters) {
     }
 
     esp_http_client_cleanup(client);
-    app_set_state(STATE_NORMAL);
+    app_set_state(STATE_NORMAL); // Esto restaurará el color fijo verde
     vTaskDelete(NULL);
 }
 
 void app_http_trigger(int btn_id) {
-    xTaskCreate(http_execute_task, "http_req", 8192, (void*)btn_id, 5, NULL);
+    xTaskCreate(http_execute_task, "http_req", 12288, (void*)btn_id, 5, NULL);
 }
 
 // Ejecución síncrona para test desde la web (devuelve status HTTP o -1 si error)
@@ -73,6 +79,7 @@ int app_http_test_sync(button_config_t *cfg) {
         .url = cfg->url,
         .timeout_ms = cfg->timeout_ms > 0 ? cfg->timeout_ms : 5000,
         .method = (cfg->method == 1) ? HTTP_METHOD_POST : HTTP_METHOD_GET,
+        .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&http_config);
