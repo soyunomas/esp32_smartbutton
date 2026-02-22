@@ -4,18 +4,20 @@
 [![MCU](https://img.shields.io/badge/MCU-ESP32--C6-green)](https://www.espressif.com/en/products/socs/esp32-c6)
 [![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
 
-Botón IoT configurable basado en ESP32-C6. Pulsa un botón físico y ejecuta una petición HTTP a la URL que quieras. Configurable desde el móvil vía portal web captivo.
+Botón IoT dual configurable basado en ESP32-C6. Pulsa un botón físico y ejecuta una petición HTTP a la URL que quieras. Configurable fácilmente desde cualquier dispositivo vía portal web captivo.
 
 ## Características
 
-- **2 botones físicos** con URL configurable cada uno (GET o POST)
-- **Portal web captivo** — al conectarte al AP se abre automáticamente
-- **Escaneo WiFi** desde la web para seleccionar tu red
-- **Autenticación** con usuario/contraseña (por defecto `admin`/`admin`)
-- **Botón de test** para probar las URLs desde la web antes de guardar
-- **Factory reset** manteniendo ambos botones 8 segundos
-- **Fallback automático** — si no conecta al WiFi, vuelve a modo AP
-- **OTA dual** preparado para actualizaciones over-the-air
+- **2 botones físicos** con URL configurable cada una (GET o POST).
+- **Portal web captivo** — al conectarte a su red, se abre automáticamente.
+- **Escaneo WiFi** desde la web para seleccionar tu red visualmente.
+- **Autenticación** con usuario/contraseña (por defecto `admin`/`admin`).
+- **Cooldown y Timeout** — anti-spam de pulsaciones y control de tiempo de espera HTTP.
+- **Feedback visual instantáneo (RTOS)** — LED RGB WS2812 con interrupciones en tiempo real.
+- **Botón de test** para probar las llamadas HTTP desde el propio panel web.
+- **Factory reset dinámico** — mantén ambos botones (tiempo configurable desde la web).
+- **Actualizaciones OTA** — sube nuevos firmwares `.bin` directamente desde el panel de control.
+- **Fallback automático** — si falla el router WiFi, vuelve a crear su propio AP.
 
 ## Hardware
 
@@ -30,30 +32,32 @@ Botón IoT configurable basado en ESP32-C6. Pulsa un botón físico y ejecuta un
 |---------|------|---------------|
 | Botón 1 | **GPIO 4** | Pull-up interno, active-low |
 | Botón 2 | **GPIO 5** | Pull-up interno, active-low |
-| LED | **GPIO 8** | Salida digital |
+| LED RGB | **GPIO 8** | Salida digital (Protocolo WS2812 / NeoPixel) |
 
 ### Esquema de conexión
 
-```
+*Nota: Se asume el uso de un LED RGB direccionable tipo WS2812 (NeoPixel).*
+
+```text
 ESP32-C6
 ┌──────────┐
-│ GPIO 4 ├──── BTN1 ──── GND
-│ GPIO 5 ├──── BTN2 ──── GND
-│ GPIO 8 ├──── LED(+) ── R(330Ω) ── GND
-│ │
-│ 3V3 ├──── (pull-up interno habilitado)
-│ GND ├──── GND común
+│ GPIO 4   ├──── BTN1 ──── GND
+│ GPIO 5   ├──── BTN2 ──── GND
+│          │
+│ GPIO 8   ├──── Data IN (LED WS2812)
+│ 5V / 3V3 ├──── VDD     (LED WS2812)
+│ GND      ├──── GND     (LED WS2812 / Común)
 └──────────┘
 ```
 
-Los botones son **normalmente abiertos** (NO). Al pulsar conectan el GPIO a GND. No necesitan resistencia externa — el firmware activa el pull-up interno.
+Los botones son **normalmente abiertos** (NO). Al pulsar conectan el GPIO a GND. No necesitan resistencia externa — el firmware activa el pull-up interno del ESP32.
 
 ## Instalación
 
 ### Requisitos
 
-- [ESP-IDF v5.2+](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/get-started/)
-- ESP32-C6 con flash de 16MB
+- [ESP-IDF v5.2+](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/get-started/) configurado y activo.
+- Placa ESP32-C6 (Flash recomendada: 16MB).
 
 ### Clonar y compilar
 
@@ -61,114 +65,110 @@ Los botones son **normalmente abiertos** (NO). Al pulsar conectan el GPIO a GND.
 git clone https://github.com/soyunomas/smartbutton.git
 cd smartbutton
 
-# Configurar entorno ESP-IDF (si no lo tienes activo)
+# Configurar entorno ESP-IDF (si no lo tienes en tu .bashrc/.zshrc)
 . $HOME/esp/esp-idf/export.sh
 
 # Compilar
 idf.py build
 
-# Flashear (primera vez, borra NVS)
+# Flashear primera vez (borra NVS anterior para asegurar limpieza)
+# Cambia /dev/ttyUSB0 por tu puerto correspondiente (COMx en Windows)
 idf.py -p /dev/ttyUSB0 erase_flash flash monitor
 
-# Flashear (actualizaciones, conserva configuración)
+# Flashear futuras actualizaciones por cable (conserva configuración WiFi/Botones)
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
-## Uso
+## Uso Normal
 
 ### Primera configuración
 
-1. **Alimenta** el ESP32-C6
-2. Busca la red WiFi **`SmartButton-XXXX`** desde tu móvil
-3. El portal de configuración se abre automáticamente (o ve a `192.168.4.1`)
-4. Inicia sesión con **admin** / **admin**
-5. **Busca redes WiFi**, selecciona la tuya e introduce la contraseña
-6. Configura las **URLs de los botones** (GET/POST, payload, timeout)
-7. Guarda y el dispositivo se reinicia conectado a tu WiFi
+1. **Alimenta** el dispositivo.
+2. Desde tu móvil/PC, busca la red WiFi **`SmartButton-XXXX`**.
+3. El portal de configuración se abre automáticamente (o navega a `http://192.168.4.1`).
+4. Inicia sesión con **admin** / **admin**.
+5. Ve a **WiFi**, escanea tu red, selecciónala y pon la contraseña.
+6. En **Botones**, configura las llamadas HTTP que necesites.
+7. Guarda. El dispositivo se reiniciará y se conectará a tu red.
 
-### Uso normal
+### Comportamiento del LED RGB
 
-- **Pulsación corta Botón 1** → ejecuta la petición HTTP configurada para el botón 1
-- **Pulsación corta Botón 2** → ejecuta la petición HTTP configurada para el botón 2
-- **LED fijo** → conectado al WiFi, listo
-- **LED parpadeo rápido** → conectando al WiFi
+El dispositivo cuenta con un sistema de estados RTOS que responde **al instante**:
 
-### Factory Reset
+| Estado | Color LED | Patrón de parpadeo |
+|--------|-----------|--------------------|
+| **Modo AP (Configuración)** | 🔵 Azul | Parpadeo lento (1s) |
+| **Conectando a WiFi** | 🟡 Amarillo | Parpadeo rápido (200ms) |
+| **Conectado / Listo** | 🟢 Verde | **Fijo** |
+| **Procesando Petición** | 🌐 Cyan | Pulso hiperrápido instantáneo |
+| **Petición Exitosa (HTTP 2xx)**| 🟢 Verde | Flash brillante de 1 segundo |
+| **Error (Timeout / Fallo)** | 🔴 Rojo | Triple flash rápido |
+| **Aviso de Reset Inminente** | 🔴 Rojo | Parpadeo muy rápido |
+| **Reset en curso** | 🔴 Rojo | **Fijo** |
 
-Mantén **ambos botones pulsados simultáneamente**:
+### Factory Reset (Restaurar de fábrica)
 
-| Tiempo | LED | Acción |
-|--------|-----|--------|
-| 0 – 5s | Parpadeo lento (500ms) | Puedes soltar para cancelar |
-| 5 – 8s | Parpadeo rápido (100ms) | Aviso: va a borrar todo |
-| 8s+ | — | Borra NVS, reinicia, entra en modo AP |
+Mantén **ambos botones pulsados simultáneamente**. Por defecto el tiempo es de 8 segundos (configurable en la web). 
 
-El factory reset borra: configuración WiFi, URLs de botones y credenciales de admin.
+- **Fase 1 (0 a T-3 seg):** El LED advertirá de la pulsación prolongada. Si sueltas los botones, la acción se cancela y se retoma la normalidad.
+- **Fase 2 (Últimos 3 seg):** El LED parpadeará en rojo rápidamente advirtiendo del borrado inminente.
+- **Fase 3 (Fin del tiempo):** El LED se queda en Rojo fijo, la placa se formatea por completo (borrando NVS) y vuelve a iniciar en Modo AP de fábrica.
 
-## Configuración de botones
+## Configuración de los Botones
 
-Cada botón permite configurar:
+Desde la web puedes ajustar parámetros avanzados por cada botón:
 
-| Campo | Descripción |
-|-------|-------------|
-| **URL** | Dirección HTTP a llamar (ej: `http://192.168.1.50/api/accion`) |
+| Parámetro | Descripción |
+|-----------|-------------|
+| **URL** | Dirección a llamar (ej: `http://192.168.1.50/api/webhook`) |
 | **Método** | `GET` o `POST` |
-| **Payload** | Cuerpo de la petición para POST (JSON) |
-| **Timeout** | Tiempo máximo de espera en segundos (1-30s, default: 5s) |
+| **Payload** | Cuerpo de la petición (JSON) si eliges POST |
+| **Timeout** | Tiempo máximo a esperar la respuesta del servidor (1 a 30 seg) |
+| **Cooldown**| Tiempo de enfriamiento anti-spam entre pulsaciones (0.5 a 60 seg) |
 
-### Feedback LED tras petición
+## Arquitectura del Software
 
-- **Parpadeo único largo** (1s) → petición exitosa (HTTP 2xx)
-- **Triple parpadeo rápido** → error (timeout, conexión fallida o HTTP no-2xx)
+Este proyecto está puramente diseñado en **C** con **ESP-IDF** y divide sus responsabilidades en componentes débilmente acoplados:
 
-## Arquitectura
+- `app_core`: Máquina de estados global, gestión de Event Groups.
+- `app_nvs`: Capa de persistencia en Flash (NVS) para WiFi, credenciales y botones.
+- `app_wifi`: Autómata de conexión STA, modo SoftAP inteligente y fallback.
+- `app_web`: Servidor HTTP en C, interfaz de usuario embebida (`html_ui.h`) y endpoints REST.
+- `app_http`: Cliente HTTP asíncrono e independiente por tarea.
+- `app_buttons`: Polling GPIO anti-rebotes con lógica dinámica para Factory Reset.
+- `app_led`: Interfaz visual en tiempo real usando `led_strip` y notificaciones RTOS.
+- `app_dns`: Servidor DNS ultraligero que permite el secuestro web (Captive Portal).
 
-```
-components/
-├── app_core/      # Máquina de estados global, event group
-├── app_nvs/       # Persistencia NVS (WiFi, botones, admin)
-├── app_wifi/      # Modos STA/APSTA, escaneo WiFi, fallback
-├── app_web/       # Servidor HTTP, portal web, autenticación
-├── app_http/      # Cliente HTTP para ejecutar acciones de botones
-├── app_buttons/   # Polling GPIO, detección pulsación y reset
-├── app_led/       # Feedback visual, blink patterns
-└── app_dns/       # Servidor DNS captive portal
-```
+### Endpoints del API REST
 
-### Estados del sistema
+La interfaz embebida interactúa con la placa mediante las siguientes rutas HTTP (protegidas con Basic Auth):
 
-```
-INIT → NO_CONFIG → AP_MODE (portal de configuración)
-     → CONNECTING → NORMAL → HTTP_REQ (ejecutando petición)
-                           → RESET_WARNING → FACTORY_RESET
-                  → AP_MODE (fallback tras 5 reintentos)
-```
+| Endpoint | Método | Uso |
+|----------|--------|-----|
+| `/` | `GET` | Carga el portal (HTML/CSS/JS comprimido) |
+| `/api/verify` | `GET` | Validación de credenciales de sesión |
+| `/api/scan` | `GET` | Devuelve JSON con redes WiFi cercanas (RSSI y Auth) |
+| `/api/wifi` | `POST`| Guarda SSID y Password y reinicia |
+| `/api/btn?id=N` | `GET` | Recupera los ajustes actuales de un botón |
+| `/api/btn` | `POST`| Guarda configuración del botón (URL, método, etc.) |
+| `/api/test` | `POST`| Realiza una prueba sincrónica HTTP y devuelve el código |
+| `/api/led` | `POST`| Endpoint manual para forzar un color RGB (Test visual) |
+| `/api/netinfo`| `GET` | Devuelve IPs, MAC, Gateway y estado de red actual |
+| `/api/admin` | `GET/POST` | Recupera o cambia credenciales de admin y tiempos del sistema |
+| `/api/ota` | `POST`| Recibe un binario multipart y ejecuta actualización de firmware |
 
-### API Web
+## Tabla de particiones
 
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/` | GET | Portal de configuración (HTML) |
-| `/api/verify` | GET | Verificar credenciales |
-| `/api/scan` | GET | Escanear redes WiFi |
-| `/api/wifi` | POST | Guardar configuración WiFi |
-| `/api/btn?id=N` | GET | Leer configuración del botón N |
-| `/api/btn` | POST | Guardar configuración de botón |
-| `/api/test` | POST | Probar petición HTTP |
-| `/api/admin` | POST | Cambiar credenciales admin |
+Configurada con soporte Dual OTA para que el firmware nunca se corrompa en caso de corte de energía durante una actualización vía web.
 
-Todos los endpoints (excepto `/` y captive portal) requieren autenticación HTTP Basic Auth.
-
-### Tabla de particiones
-
-| Partición | Tipo | Tamaño |
-|-----------|------|--------|
-| nvs | NVS | 24 KB |
-| factory | App | 2 MB |
-| ota_0 | OTA | 2 MB |
-| ota_1 | OTA | 2 MB |
-| storage | SPIFFS | 1 MB |
+| Nombre | Tipo | Subtipo | Tamaño |
+|-----------|------|---------|--------|
+| nvs | data | nvs | 24 KB |
+| factory | app | factory | 2 MB |
+| ota_0 | app | ota_0 | 2 MB |
+| ota_1 | app | ota_1 | 2 MB |
+| storage | data | spiffs | 1 MB |
 
 ## Licencia
 
-MIT
+Este proyecto se distribuye bajo la licencia **MIT**. Puedes usarlo, modificarlo y distribuirlo libremente.
