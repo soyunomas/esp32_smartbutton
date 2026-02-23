@@ -22,7 +22,8 @@ Botón IoT dual configurable basado en ESP32-C6. Pulsa un botón físico y ejecu
 - **Botón de test** para probar las llamadas HTTP desde el propio panel web.
 - **Factory reset dinámico** — mantén ambos botones (tiempo configurable desde la web).
 - **Actualizaciones OTA** — sube nuevos firmwares `.bin` directamente desde el panel de control.
-- **Fallback automático** — si falla la conexión WiFi tras 5 reintentos, vuelve a crear su propio AP.
+- **Configuración avanzada** — reintentos WiFi, canal AP, timeouts de deep sleep y anti-rebote de botones ajustables desde la web.
+- **Fallback automático** — si falla la conexión WiFi (reintentos configurables), vuelve a crear su propio AP.
   
 ## Imágenes
 
@@ -130,14 +131,14 @@ El dispositivo cuenta con un sistema de estados RTOS que responde **al instante*
 
 Activable desde **Sistema > Deep Sleep** en el panel web. Ideal para dispositivos alimentados por batería.
 
-- **Arranque en frío** (primera alimentación o reset): el dispositivo permanece despierto **3 minutos** para permitir acceso al panel de configuración y luego entra en deep sleep.
+- **Arranque en frío** (primera alimentación o reset): el dispositivo permanece despierto un tiempo configurable (por defecto **3 minutos**) para permitir acceso al panel de configuración y luego entra en deep sleep.
 - **Despertar por botón**: al pulsar cualquiera de los dos botones, el dispositivo despierta, conecta a WiFi, ejecuta la petición HTTP del botón correspondiente y vuelve a dormir automáticamente.
 - **Detección temprana del botón**: el GPIO se lee al inicio mismo del arranque (antes de cualquier inicialización) para identificar correctamente qué botón despertó el dispositivo.
-- **Timeout de seguridad**: si la petición no se completa en 30 segundos, el dispositivo vuelve a dormir igualmente.
+- **Timeout de seguridad**: si la petición no se completa en el tiempo configurado (por defecto 30 segundos), el dispositivo vuelve a dormir igualmente.
 
 ### Modo Cliente Puro
 
-Activable desde **Sistema > Modo Cliente Puro**. Oculta el punto de acceso propio (`SmartButton-XXXX`) una vez conectado exitosamente a tu red WiFi. Útil para mayor seguridad en entornos de producción. Si la conexión falla tras 5 reintentos, el AP se reactiva automáticamente como fallback.
+Activable desde **Sistema > Modo Cliente Puro**. Oculta el punto de acceso propio (`SmartButton-XXXX`) una vez conectado exitosamente a tu red WiFi. Útil para mayor seguridad en entornos de producción. Si la conexión falla tras los reintentos configurados (por defecto 5), el AP se reactiva automáticamente como fallback.
 
 ### Factory Reset (Restaurar de fábrica)
 
@@ -172,13 +173,25 @@ Desde **Sistema > Ajustes del AP Local** puedes personalizar el punto de acceso:
 | **Modo Cliente Puro** | Oculta el AP tras conectar exitosamente a tu red WiFi |
 | **Deep Sleep** | Activa el modo bajo consumo (duerme tras ejecutar acción) |
 
+## Configuración Avanzada
+
+Desde **Sistema > Configuración Avanzada** se pueden ajustar parámetros internos del firmware:
+
+| Parámetro | Descripción | Rango | Default |
+|-----------|-------------|-------|---------|
+| **Reintentos WiFi** | Intentos de reconexión antes de activar el fallback AP | 1 – 20 | 5 |
+| **Canal AP WiFi** | Canal del punto de acceso propio (para evitar interferencias) | 1 – 13 | 1 |
+| **Timeout wakeup** | Segundos máximos despierto tras wakeup por botón (deep sleep) | 10 – 120 | 30 |
+| **Tiempo config** | Segundos despierto en arranque frío para permitir configuración | 30 – 600 | 180 |
+| **Anti-rebote** | Tiempo mínimo de pulsación para considerar un botón válido (ms) | 50 – 500 | 200 |
+
 ## Arquitectura del Software
 
 Este proyecto está diseñado en **C** con **ESP-IDF** y divide sus responsabilidades en componentes débilmente acoplados:
 
 - `app_core`: Máquina de estados global, gestión de Event Groups.
 - `app_nvs`: Capa de persistencia en Flash (NVS) para WiFi, credenciales, botones y ajustes de sistema.
-- `app_wifi`: Modos STA, AP y APSTA con fallback automático tras 5 reintentos fallidos.
+- `app_wifi`: Modos STA, AP y APSTA con fallback automático tras reintentos configurables.
 - `app_web`: Servidor HTTP, interfaz de usuario embebida (`html_ui.h`) y endpoints REST con autenticación Basic Auth.
 - `app_http`: Cliente HTTP/HTTPS asíncrono con TLS via `esp_crt_bundle`, ejecutado en tarea independiente.
 - `app_buttons`: Polling GPIO anti-rebotes con lógica dinámica para Factory Reset.

@@ -108,18 +108,23 @@ esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config) {
     return ESP_OK;
 }
 
-esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client, bool deep_sleep) {
+esp_err_t app_nvs_save_admin(const admin_config_t *config) {
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("admin_conf", NVS_READWRITE, &my_handle);
     if (err != ESP_OK) return err;
 
-    nvs_set_str(my_handle, "user", user);
-    nvs_set_str(my_handle, "pass", pass);
-    nvs_set_i32(my_handle, "reset_ms", reset_time_ms);
-    nvs_set_str(my_handle, "ap_ssid", ap_ssid);
-    nvs_set_str(my_handle, "ap_pass", ap_pass);
-    nvs_set_u8(my_handle, "pure_cli", pure_client ? 1 : 0);
-    nvs_set_u8(my_handle, "deep_slp", deep_sleep ? 1 : 0);
+    nvs_set_str(my_handle, "user", config->user);
+    nvs_set_str(my_handle, "pass", config->pass);
+    nvs_set_i32(my_handle, "reset_ms", config->reset_time_ms);
+    nvs_set_str(my_handle, "ap_ssid", config->ap_ssid);
+    nvs_set_str(my_handle, "ap_pass", config->ap_pass);
+    nvs_set_u8(my_handle, "pure_cli", config->pure_client ? 1 : 0);
+    nvs_set_u8(my_handle, "deep_slp", config->deep_sleep ? 1 : 0);
+    nvs_set_i32(my_handle, "sta_retr", config->sta_max_retries);
+    nvs_set_i32(my_handle, "ap_chan", config->ap_channel);
+    nvs_set_i32(my_handle, "wk_tout", config->wakeup_timeout_s);
+    nvs_set_i32(my_handle, "cfg_awake", config->config_awake_s);
+    nvs_set_i32(my_handle, "debounce", config->debounce_ms);
     
     nvs_commit(my_handle);
     nvs_close(my_handle);
@@ -136,6 +141,11 @@ void app_nvs_get_admin(admin_config_t *config) {
     strlcpy(config->ap_pass, "smartbutton", sizeof(config->ap_pass)); // Clave por defecto
     config->pure_client = false;
     config->deep_sleep = false;
+    config->sta_max_retries = 5;
+    config->ap_channel = 1;
+    config->wakeup_timeout_s = 30;
+    config->config_awake_s = 180;
+    config->debounce_ms = 200;
 
     if (nvs_open("admin_conf", NVS_READONLY, &my_handle) != ESP_OK) return;
 
@@ -160,6 +170,13 @@ void app_nvs_get_admin(admin_config_t *config) {
     if (nvs_get_u8(my_handle, "deep_slp", &ds) == ESP_OK) {
         config->deep_sleep = (ds == 1);
     }
+
+    int32_t tmp;
+    if (nvs_get_i32(my_handle, "sta_retr", &tmp) == ESP_OK) config->sta_max_retries = (int)tmp;
+    if (nvs_get_i32(my_handle, "ap_chan", &tmp) == ESP_OK) config->ap_channel = (int)tmp;
+    if (nvs_get_i32(my_handle, "wk_tout", &tmp) == ESP_OK) config->wakeup_timeout_s = (int)tmp;
+    if (nvs_get_i32(my_handle, "cfg_awake", &tmp) == ESP_OK) config->config_awake_s = (int)tmp;
+    if (nvs_get_i32(my_handle, "debounce", &tmp) == ESP_OK) config->debounce_ms = (int)tmp;
 
     nvs_close(my_handle);
 }

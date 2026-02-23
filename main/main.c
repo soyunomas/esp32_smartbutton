@@ -103,12 +103,12 @@ void app_main(void) {
             // La misma variable del hardware se usa para decidir si duerme rápido
             if (is_wakeup) {
                 // Modo rápido: duerme al instante tras la petición web
-                if ((bits & EVENT_HTTP_DONE) || awake_time > 30) {
+                if ((bits & EVENT_HTTP_DONE) || awake_time > (uint32_t)admin.wakeup_timeout_s) {
                     should_sleep = true;
                 }
             } else {
                 // Modo Configuración (encendido frío): Permite entrar a la web por 3 mins
-                if ((bits & EVENT_HTTP_DONE) || awake_time > 180) {
+                if ((bits & EVENT_HTTP_DONE) || awake_time > (uint32_t)admin.config_awake_s) {
                     should_sleep = true;
                 }
             }

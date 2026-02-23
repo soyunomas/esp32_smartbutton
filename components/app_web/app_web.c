@@ -257,6 +257,11 @@ static esp_err_t admin_get_handler(httpd_req_t *req) {
     cJSON_AddStringToObject(root, "ap_pass", admin.ap_pass);
     cJSON_AddBoolToObject(root, "pure_client", admin.pure_client);
     cJSON_AddBoolToObject(root, "deep_sleep", admin.deep_sleep);
+    cJSON_AddNumberToObject(root, "sta_max_retries", admin.sta_max_retries);
+    cJSON_AddNumberToObject(root, "ap_channel", admin.ap_channel);
+    cJSON_AddNumberToObject(root, "wakeup_timeout", admin.wakeup_timeout_s);
+    cJSON_AddNumberToObject(root, "config_awake", admin.config_awake_s);
+    cJSON_AddNumberToObject(root, "debounce", admin.debounce_ms);
     
     char *json = cJSON_PrintUnformatted(root);
     httpd_resp_set_type(req, "application/json");
@@ -286,23 +291,42 @@ static esp_err_t admin_post_handler(httpd_req_t *req) {
     cJSON *jap_pass = cJSON_GetObjectItem(root, "ap_pass");
     cJSON *jpure = cJSON_GetObjectItem(root, "pure_client");
     cJSON *jdeep = cJSON_GetObjectItem(root, "deep_sleep");
+    cJSON *jretries = cJSON_GetObjectItem(root, "sta_max_retries");
+    cJSON *jchan = cJSON_GetObjectItem(root, "ap_channel");
+    cJSON *jwktout = cJSON_GetObjectItem(root, "wakeup_timeout");
+    cJSON *jcfgawake = cJSON_GetObjectItem(root, "config_awake");
+    cJSON *jdebounce = cJSON_GetObjectItem(root, "debounce");
 
-    admin_config_t current;
-    app_nvs_get_admin(&current);
+    admin_config_t updated;
+    app_nvs_get_admin(&updated);
 
-    const char *user = (cJSON_IsString(juser) && juser->valuestring[0]) ? juser->valuestring : current.user;
-    const char *pass = (cJSON_IsString(jpass) && jpass->valuestring[0]) ? jpass->valuestring : current.pass;
-    int reset_ms = cJSON_IsNumber(jreset) ? jreset->valueint * 1000 : current.reset_time_ms;
-    
-    const char *ap_ssid = cJSON_IsString(jap_ssid) ? jap_ssid->valuestring : current.ap_ssid;
-    const char *ap_pass = cJSON_IsString(jap_pass) ? jap_pass->valuestring : current.ap_pass;
-    bool pure_client = cJSON_IsBool(jpure) ? cJSON_IsTrue(jpure) : current.pure_client;
-    bool deep_sleep = cJSON_IsBool(jdeep) ? cJSON_IsTrue(jdeep) : current.deep_sleep;
+    if (cJSON_IsString(juser) && juser->valuestring[0]) strlcpy(updated.user, juser->valuestring, sizeof(updated.user));
+    if (cJSON_IsString(jpass) && jpass->valuestring[0]) strlcpy(updated.pass, jpass->valuestring, sizeof(updated.pass));
+    if (cJSON_IsNumber(jreset)) updated.reset_time_ms = jreset->valueint * 1000;
+    if (cJSON_IsString(jap_ssid)) strlcpy(updated.ap_ssid, jap_ssid->valuestring, sizeof(updated.ap_ssid));
+    if (cJSON_IsString(jap_pass)) strlcpy(updated.ap_pass, jap_pass->valuestring, sizeof(updated.ap_pass));
+    if (cJSON_IsBool(jpure)) updated.pure_client = cJSON_IsTrue(jpure);
+    if (cJSON_IsBool(jdeep)) updated.deep_sleep = cJSON_IsTrue(jdeep);
+    if (cJSON_IsNumber(jretries)) updated.sta_max_retries = jretries->valueint;
+    if (cJSON_IsNumber(jchan)) updated.ap_channel = jchan->valueint;
+    if (cJSON_IsNumber(jwktout)) updated.wakeup_timeout_s = jwktout->valueint;
+    if (cJSON_IsNumber(jcfgawake)) updated.config_awake_s = jcfgawake->valueint;
+    if (cJSON_IsNumber(jdebounce)) updated.debounce_ms = jdebounce->valueint;
 
-    if (reset_ms < 3000) reset_ms = 3000;
-    if (reset_ms > 60000) reset_ms = 60000;
+    if (updated.reset_time_ms < 3000) updated.reset_time_ms = 3000;
+    if (updated.reset_time_ms > 60000) updated.reset_time_ms = 60000;
+    if (updated.sta_max_retries < 1) updated.sta_max_retries = 1;
+    if (updated.sta_max_retries > 20) updated.sta_max_retries = 20;
+    if (updated.ap_channel < 1) updated.ap_channel = 1;
+    if (updated.ap_channel > 13) updated.ap_channel = 13;
+    if (updated.wakeup_timeout_s < 10) updated.wakeup_timeout_s = 10;
+    if (updated.wakeup_timeout_s > 120) updated.wakeup_timeout_s = 120;
+    if (updated.config_awake_s < 30) updated.config_awake_s = 30;
+    if (updated.config_awake_s > 600) updated.config_awake_s = 600;
+    if (updated.debounce_ms < 50) updated.debounce_ms = 50;
+    if (updated.debounce_ms > 500) updated.debounce_ms = 500;
 
-    app_nvs_save_admin(user, pass, reset_ms, ap_ssid, ap_pass, pure_client, deep_sleep);
+    app_nvs_save_admin(&updated);
     ESP_LOGI(TAG, "Admin credentials & AP settings updated");
     
     httpd_resp_set_type(req, "application/json");

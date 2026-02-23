@@ -15,7 +15,7 @@ static const char *TAG = "WIFI";
 #define STA_CONNECT_TIMEOUT_MS 15000
 
 static int sta_retry_count = 0;
-#define STA_MAX_RETRIES 5
+static int s_max_retries = 5;
 
 static void start_ap_mode(void);
 
@@ -23,13 +23,13 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data) {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         sta_retry_count++;
-        if (sta_retry_count < STA_MAX_RETRIES) {
-            ESP_LOGW(TAG, "WiFi Lost, retry %d/%d...", sta_retry_count, STA_MAX_RETRIES);
+        if (sta_retry_count < s_max_retries) {
+            ESP_LOGW(TAG, "WiFi Lost, retry %d/%d...", sta_retry_count, s_max_retries);
             esp_wifi_connect();
             xEventGroupSetBits(app_event_group, EVENT_WIFI_LOST);
         } else {
             // Fallback de seguridad vital: Si falla conectarse, garantizamos abrir el APSTA
-            ESP_LOGW(TAG, "STA failed after %d retries, fallback to AP mode", STA_MAX_RETRIES);
+            ESP_LOGW(TAG, "STA failed after %d retries, fallback to AP mode", s_max_retries);
             app_wifi_switch_to_ap();
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
@@ -57,6 +57,7 @@ void app_wifi_start_sta(void) {
 
     admin_config_t admin;
     app_nvs_get_admin(&admin);
+    s_max_retries = admin.sta_max_retries > 0 ? admin.sta_max_retries : 5;
 
     wifi_config_t wifi_config = {0};
     strlcpy((char*)wifi_config.sta.ssid, nvs_conf.ssid, sizeof(wifi_config.sta.ssid));
@@ -97,7 +98,7 @@ static void start_ap_mode(void) {
     }
 
     wifi_config_t wifi_config = {0};
-    wifi_config.ap.channel = 1;
+    wifi_config.ap.channel = (admin.ap_channel >= 1 && admin.ap_channel <= 13) ? admin.ap_channel : 1;
     wifi_config.ap.max_connection = 4;
     strlcpy((char*)wifi_config.ap.ssid, ssid, sizeof(wifi_config.ap.ssid));
     wifi_config.ap.ssid_len = strlen(ssid);

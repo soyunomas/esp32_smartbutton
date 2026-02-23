@@ -163,6 +163,26 @@ input[type="file"]{padding:8px;cursor:pointer;font-size:.85rem}
 </div>
 
 <div class="card">
+<h2>🔧 Configuración Avanzada</h2>
+<div class="r2">
+<div><label>Reintentos WiFi</label>
+<input id="sta_retries" type="number" min="1" max="20" value="5">
+</div>
+<div><label>Canal AP WiFi</label>
+<input id="ap_channel" type="number" min="1" max="13" value="1">
+</div></div>
+<div class="r2">
+<div><label>Timeout wakeup (seg)</label>
+<input id="wk_timeout" type="number" min="10" max="120" value="30">
+</div>
+<div><label>Tiempo config (seg)</label>
+<input id="cfg_awake" type="number" min="30" max="600" value="180">
+</div></div>
+<label>Anti-rebote botones (ms)</label>
+<input id="debounce" type="number" min="50" max="500" value="200">
+</div>
+
+<div class="card">
 <h2>🔑 Panel y Seguridad</h2>
 <label>Usuario Dashboard</label>
 <input id="auser" placeholder="admin">
@@ -284,6 +304,11 @@ if(d.ap_ssid !== undefined)$('ap_ssid').value=d.ap_ssid;
 if(d.ap_pass !== undefined)$('ap_pass').value=d.ap_pass;
 if(d.pure_client !== undefined)$('pure_client').checked=d.pure_client;
 if(d.deep_sleep !== undefined)$('deep_sleep').checked=d.deep_sleep;
+if(d.sta_max_retries !== undefined)$('sta_retries').value=d.sta_max_retries;
+if(d.ap_channel !== undefined)$('ap_channel').value=d.ap_channel;
+if(d.wakeup_timeout !== undefined)$('wk_timeout').value=d.wakeup_timeout;
+if(d.config_awake !== undefined)$('cfg_awake').value=d.config_awake;
+if(d.debounce !== undefined)$('debounce').value=d.debounce;
 }).catch(function(){});
 }
 function saveAdmin(){
@@ -296,7 +321,10 @@ if(p && p!==p2){msg('amsg',0,'Las contraseñas de admin no coinciden');return;}
 if(p && p.length<4){msg('amsg',0,'Minimo 4 caracteres (admin)');return;}
 if(app && app.length>0 && app.length<8){msg('amsg',0,'Clave de AP debe tener mínimo 8 caracteres');return;}
 
-var body={user:u, reset_time:parseInt(r), ap_ssid:aps, ap_pass:app, pure_client:pc, deep_sleep:ds};
+var body={user:u, reset_time:parseInt(r), ap_ssid:aps, ap_pass:app, pure_client:pc, deep_sleep:ds,
+sta_max_retries:parseInt($('sta_retries').value), ap_channel:parseInt($('ap_channel').value),
+wakeup_timeout:parseInt($('wk_timeout').value), config_awake:parseInt($('cfg_awake').value),
+debounce:parseInt($('debounce').value)};
 if(p)body.pass=p;
 
 af('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})

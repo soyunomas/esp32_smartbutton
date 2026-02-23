@@ -27,6 +27,11 @@ typedef struct {
     char ap_pass[64];
     bool pure_client;
     bool deep_sleep;
+    int sta_max_retries;
+    int ap_channel;
+    int wakeup_timeout_s;
+    int config_awake_s;
+    int debounce_ms;
 } admin_config_t;
 
 void app_nvs_init(void);
@@ -41,5 +46,5 @@ esp_err_t app_nvs_save_button(int btn_id, button_config_t *config);
 esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config);
 
 // Funciones Admin
-esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client, bool deep_sleep);
+esp_err_t app_nvs_save_admin(const admin_config_t *config);
 void app_nvs_get_admin(admin_config_t *config);
