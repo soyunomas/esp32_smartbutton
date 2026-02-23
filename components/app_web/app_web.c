@@ -289,6 +289,7 @@ static esp_err_t admin_get_handler(httpd_req_t *req) {
     cJSON_AddStringToObject(root, "ap_ssid", admin.ap_ssid);
     cJSON_AddStringToObject(root, "ap_pass", admin.ap_pass);
     cJSON_AddBoolToObject(root, "pure_client", admin.pure_client);
+    cJSON_AddBoolToObject(root, "deep_sleep", admin.deep_sleep);
     
     char *json = cJSON_PrintUnformatted(root);
     httpd_resp_set_type(req, "application/json");
@@ -317,6 +318,7 @@ static esp_err_t admin_post_handler(httpd_req_t *req) {
     cJSON *jap_ssid = cJSON_GetObjectItem(root, "ap_ssid");
     cJSON *jap_pass = cJSON_GetObjectItem(root, "ap_pass");
     cJSON *jpure = cJSON_GetObjectItem(root, "pure_client");
+    cJSON *jdeep = cJSON_GetObjectItem(root, "deep_sleep");
 
     admin_config_t current;
     app_nvs_get_admin(&current);
@@ -328,11 +330,12 @@ static esp_err_t admin_post_handler(httpd_req_t *req) {
     const char *ap_ssid = cJSON_IsString(jap_ssid) ? jap_ssid->valuestring : current.ap_ssid;
     const char *ap_pass = cJSON_IsString(jap_pass) ? jap_pass->valuestring : current.ap_pass;
     bool pure_client = cJSON_IsBool(jpure) ? cJSON_IsTrue(jpure) : current.pure_client;
+    bool deep_sleep = cJSON_IsBool(jdeep) ? cJSON_IsTrue(jdeep) : current.deep_sleep;
 
     if (reset_ms < 3000) reset_ms = 3000;
     if (reset_ms > 60000) reset_ms = 60000;
 
-    app_nvs_save_admin(user, pass, reset_ms, ap_ssid, ap_pass, pure_client);
+    app_nvs_save_admin(user, pass, reset_ms, ap_ssid, ap_pass, pure_client, deep_sleep);
     ESP_LOGI(TAG, "Admin credentials & AP settings updated");
     
     httpd_resp_set_type(req, "application/json");

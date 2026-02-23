@@ -63,7 +63,8 @@ void http_execute_task(void *pvParameters) {
     }
 
     esp_http_client_cleanup(client);
-    app_set_state(STATE_NORMAL); // Esto restaurará el color fijo verde
+    app_set_state(STATE_NORMAL);
+    xEventGroupSetBits(app_event_group, EVENT_HTTP_DONE);
     vTaskDelete(NULL);
 }
 

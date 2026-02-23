@@ -25,7 +25,8 @@ typedef struct {
     int reset_time_ms;
     char ap_ssid[32];
     char ap_pass[64];
-    bool pure_client;  // NUEVO: Modo STA puro al conectar
+    bool pure_client;
+    bool deep_sleep;
 } admin_config_t;
 
 void app_nvs_init(void);
@@ -40,5 +41,5 @@ esp_err_t app_nvs_save_button(int btn_id, button_config_t *config);
 esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config);
 
 // Funciones Admin
-esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client);
+esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client, bool deep_sleep);
 void app_nvs_get_admin(admin_config_t *config);

@@ -191,6 +191,10 @@ input[type="file"]{padding:6px;cursor:pointer}
 <input type="checkbox" id="pure_client">
 <label for="pure_client">Modo Cliente Puro (Ocultar el AP por seguridad tras conectar exitosamente a tu red WiFi)</label>
 </div>
+<div class="chk-row">
+<input type="checkbox" id="deep_sleep">
+<label for="deep_sleep">Deep Sleep (Bajo consumo: duerme tras ejecutar acción, despierta al pulsar botón)</label>
+</div>
 </div>
 
 <div class="card">
@@ -315,18 +319,20 @@ if(d.reset_time)$('areset').value=d.reset_time;
 if(d.ap_ssid !== undefined)$('ap_ssid').value=d.ap_ssid;
 if(d.ap_pass !== undefined)$('ap_pass').value=d.ap_pass;
 if(d.pure_client !== undefined)$('pure_client').checked=d.pure_client;
+if(d.deep_sleep !== undefined)$('deep_sleep').checked=d.deep_sleep;
 }).catch(function(){});
 }
 function saveAdmin(){
 var u=$('auser').value, p=$('apass').value, p2=$('apass2').value, r=$('areset').value;
 var aps=$('ap_ssid').value, app=$('ap_pass').value, pc=$('pure_client').checked;
+var ds=$('deep_sleep').checked;
 
 if(!u){msg('amsg',0,'Introduce un usuario');return;}
 if(p && p!==p2){msg('amsg',0,'Las contraseñas de admin no coinciden');return;}
 if(p && p.length<4){msg('amsg',0,'Minimo 4 caracteres (admin)');return;}
 if(app && app.length>0 && app.length<8){msg('amsg',0,'Clave de AP debe tener mínimo 8 caracteres');return;}
 
-var body={user:u, reset_time:parseInt(r), ap_ssid:aps, ap_pass:app, pure_client:pc};
+var body={user:u, reset_time:parseInt(r), ap_ssid:aps, ap_pass:app, pure_client:pc, deep_sleep:ds};
 if(p)body.pass=p;
 
 af('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})

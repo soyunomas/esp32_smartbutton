@@ -108,7 +108,7 @@ esp_err_t app_nvs_get_button_config(int btn_id, button_config_t *config) {
     return ESP_OK;
 }
 
-esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client) {
+esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_ms, const char* ap_ssid, const char* ap_pass, bool pure_client, bool deep_sleep) {
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("admin_conf", NVS_READWRITE, &my_handle);
     if (err != ESP_OK) return err;
@@ -119,6 +119,7 @@ esp_err_t app_nvs_save_admin(const char* user, const char* pass, int reset_time_
     nvs_set_str(my_handle, "ap_ssid", ap_ssid);
     nvs_set_str(my_handle, "ap_pass", ap_pass);
     nvs_set_u8(my_handle, "pure_cli", pure_client ? 1 : 0);
+    nvs_set_u8(my_handle, "deep_slp", deep_sleep ? 1 : 0);
     
     nvs_commit(my_handle);
     nvs_close(my_handle);
@@ -134,6 +135,7 @@ void app_nvs_get_admin(admin_config_t *config) {
     config->ap_ssid[0] = '\0'; // Vacío indicará que se auto-genere con la MAC
     strlcpy(config->ap_pass, "smartbutton", sizeof(config->ap_pass)); // Clave por defecto
     config->pure_client = false;
+    config->deep_sleep = false;
 
     if (nvs_open("admin_conf", NVS_READONLY, &my_handle) != ESP_OK) return;
 
@@ -152,6 +154,11 @@ void app_nvs_get_admin(admin_config_t *config) {
     uint8_t pc = 0;
     if (nvs_get_u8(my_handle, "pure_cli", &pc) == ESP_OK) {
         config->pure_client = (pc == 1);
+    }
+
+    uint8_t ds = 0;
+    if (nvs_get_u8(my_handle, "deep_slp", &ds) == ESP_OK) {
+        config->deep_sleep = (ds == 1);
     }
 
     nvs_close(my_handle);

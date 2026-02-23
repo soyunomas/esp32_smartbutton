@@ -18,6 +18,7 @@ typedef enum {
 #define EVENT_WIFI_LOST         (1 << 1)
 #define EVENT_BUTTON_TRIGGER    (1 << 2)
 #define EVENT_FACTORY_RESET     (1 << 3)
+#define EVENT_HTTP_DONE         (1 << 4)
 
 typedef void (*state_change_cb_t)(system_state_t);
 

@@ -42,6 +42,26 @@ static bool can_trigger(int btn_id) {
     return true;
 }
 
+// Interfaz para inyectar trigger post deep-sleep
+void app_buttons_simulate_press(int btn_id) {
+    // Al venir de un deep sleep, ignoramos el can_trigger() (cooldown) inicial 
+    // porque el chip arranca más rápido que los 2 segundos de protección, 
+    // lo que provocaba que se ignorara la pulsación y te obligara a darle 2 veces.
+    ESP_LOGI(TAG, "BTN%d Wakeup Triggered (Bypassing cooldown)", btn_id);
+    
+    // Sin embargo, sí actualizamos el reloj interno. De esta forma, si sigues 
+    // manteniendo el dedo en el botón mientras se envía la petición, evitamos 
+    // que lance una segunda petición accidental al soltarlo.
+    int64_t now = esp_timer_get_time() / 1000;
+    if (btn_id == 1) {
+        last_trigger_time_1 = now;
+    } else {
+        last_trigger_time_2 = now;
+    }
+
+    app_http_trigger(btn_id);
+}
+
 static void button_task(void *arg) {
     uint32_t both_duration = 0;
     int prev_b1 = 1, prev_b2 = 1;
