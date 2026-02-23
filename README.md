@@ -18,6 +18,20 @@ Botón IoT dual configurable basado en ESP32-C6. Pulsa un botón físico y ejecu
 - **Factory reset dinámico** — mantén ambos botones (tiempo configurable desde la web).
 - **Actualizaciones OTA** — sube nuevos firmwares `.bin` directamente desde el panel de control.
 - **Fallback automático** — si falla el router WiFi, vuelve a crear su propio AP.
+  
+## Imágenes
+
+<center>
+  <table>
+    <tr>
+      <td><img src="images/wifi.png" alt="WiFi Scan" style="height: 250px;"></td>
+      <td rowspan="2"><img src="images/config.png" alt="Configuración" style="height: 500px;"></td>
+    </tr>
+    <tr>
+      <td><img src="images/buttons.png" alt="Botones" style="height: 250px;"></td>
+    </tr>
+  </table>
+</center>
 
 ## Hardware
 
