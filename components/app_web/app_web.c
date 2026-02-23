@@ -5,7 +5,6 @@
 #include "app_wifi.h"
 #include "app_core.h"
 #include "app_http.h"
-#include "app_led.h"
 #include "esp_log.h"
 #include "cJSON.h"
 #include "mbedtls/base64.h"
@@ -235,38 +234,6 @@ static esp_err_t test_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-static esp_err_t led_post_handler(httpd_req_t *req) {
-    if (!check_auth(req)) return send_auth_required(req);
-    char buf[128];
-    int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
-    if (ret <= 0) return ESP_FAIL;
-    buf[ret] = 0;
-
-    cJSON *root = cJSON_Parse(buf);
-    if (!root) {
-        httpd_resp_send(req, "{\"ok\":false}", HTTPD_RESP_USE_STRLEN);
-        return ESP_OK;
-    }
-
-    cJSON *joff = cJSON_GetObjectItem(root, "off");
-    if (cJSON_IsTrue(joff)) {
-        app_led_off();
-    } else {
-        cJSON *jr = cJSON_GetObjectItem(root, "r");
-        cJSON *jg = cJSON_GetObjectItem(root, "g");
-        cJSON *jb = cJSON_GetObjectItem(root, "b");
-        uint8_t r = cJSON_IsNumber(jr) ? (uint8_t)jr->valueint : 0;
-        uint8_t g = cJSON_IsNumber(jg) ? (uint8_t)jg->valueint : 0;
-        uint8_t b = cJSON_IsNumber(jb) ? (uint8_t)jb->valueint : 0;
-        app_led_set_color(r, g, b);
-    }
-
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_send(req, "{\"ok\":true}", HTTPD_RESP_USE_STRLEN);
-    cJSON_Delete(root);
-    return ESP_OK;
-}
-
 static esp_err_t netinfo_get_handler(httpd_req_t *req) {
     if (!check_auth(req)) return send_auth_required(req);
     cJSON *info = app_wifi_get_netinfo();
@@ -451,9 +418,6 @@ void app_web_start(void) {
 
         httpd_uri_t uri_test = { .uri = "/api/test", .method = HTTP_POST, .handler = test_post_handler };
         httpd_register_uri_handler(server, &uri_test);
-
-        httpd_uri_t uri_led = { .uri = "/api/led", .method = HTTP_POST, .handler = led_post_handler };
-        httpd_register_uri_handler(server, &uri_led);
 
         httpd_uri_t uri_netinfo = { .uri = "/api/netinfo", .method = HTTP_GET, .handler = netinfo_get_handler };
         httpd_register_uri_handler(server, &uri_netinfo);

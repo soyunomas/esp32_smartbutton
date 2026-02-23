@@ -5,69 +5,67 @@ const char index_html[] = R"rawliteral(
 <title>SmartButton</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,sans-serif;background:#1a1a2e;color:#eee;min-height:100vh}
-.header{background:#16213e;padding:12px 16px;text-align:center;border-bottom:1px solid #0f3460;position:sticky;top:0;z-index:50}
-.header h1{font-size:1.15em;color:#00d4ff;margin:0}
-.nav{position:fixed;bottom:0;left:0;right:0;background:#16213e;border-top:1px solid #0f3460;display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
-.nav-item{flex:1;text-align:center;padding:8px 0 6px;cursor:pointer;color:#556;font-size:.68em;transition:color .2s}
-.nav-item .ico{font-size:1.4em;display:block;margin-bottom:2px}
-.nav-item.act{color:#00d4ff}
-.sec{display:none;padding:16px;padding-bottom:80px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#212529;color:#dee2e6;min-height:100vh;font-size:1rem;line-height:1.5}
+.header{background:#2b3035;padding:14px 16px;text-align:center;border-bottom:1px solid #495057;position:sticky;top:0;z-index:50}
+.header h1{font-size:1.25rem;color:#fff;margin:0;font-weight:600;letter-spacing:.5px}
+.nav{position:fixed;bottom:0;left:0;right:0;background:#2b3035;border-top:1px solid #495057;display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;text-align:center;padding:10px 0 8px;cursor:pointer;color:#6c757d;font-size:.72em;transition:all .2s}
+.nav-item .ico{font-size:1.4em;display:block;margin-bottom:3px}
+.nav-item.act{color:#0d6efd;background:rgba(13,110,253,.08)}
+.nav-item:active{background:rgba(13,110,253,.15)}
+.sec{display:none;padding:16px;padding-bottom:90px;max-width:540px;margin:0 auto}
 .sec.act{display:block}
-.card{background:#16213e;border-radius:12px;padding:16px;margin-bottom:14px}
-.card h2{font-size:1em;margin-bottom:12px;color:#00d4ff;border-bottom:1px solid #0f3460;padding-bottom:8px}
-label{display:block;font-size:.85em;color:#aaa;margin-bottom:4px}
-input,select{width:100%;padding:10px;border:1px solid #0f3460;border-radius:8px;background:#0f3460;color:#eee;font-size:.95em;margin-bottom:10px;-webkit-appearance:none}
-input:focus,select:focus{outline:none;border-color:#00d4ff}
-select{cursor:pointer}
+.card{background:#2b3035;border:1px solid #495057;border-radius:.5rem;padding:20px;margin-bottom:16px}
+.card h2{font-size:.95rem;font-weight:600;margin-bottom:14px;color:#fff;border-bottom:1px solid #495057;padding-bottom:10px}
+label{display:block;font-size:.875rem;color:#adb5bd;margin-bottom:6px;font-weight:500}
+input,select{width:100%;padding:10px 14px;border:1px solid #495057;border-radius:.375rem;background:#343a40;color:#dee2e6;font-size:.9rem;margin-bottom:12px;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{outline:none;border-color:#86b7fe;box-shadow:0 0 0 .2rem rgba(13,110,253,.25)}
+select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23adb5bd' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px;padding-right:36px}
 .pw{position:relative}
 .pw input{padding-right:44px}
-.pw-tog{position:absolute;right:8px;top:6px;background:none;border:none;color:#aaa;font-size:1.2em;cursor:pointer;padding:4px;width:auto}
-.wifi-list{max-height:200px;overflow-y:auto;margin-bottom:10px}
-.wifi-item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#0f3460}
-.wifi-item:hover,.wifi-item.sel{background:#1a3a6e;border:1px solid #00d4ff}
-.wifi-item .name{font-size:.9em;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wifi-item .rssi{font-size:.75em;color:#aaa;margin-left:8px;white-space:nowrap}
+.pw-tog{position:absolute;right:10px;top:7px;background:none;border:none;color:#6c757d;font-size:1.1em;cursor:pointer;padding:4px;width:auto;transition:color .2s}
+.pw-tog:hover{color:#adb5bd}
+.wifi-list{max-height:220px;overflow-y:auto;margin-bottom:12px;border-radius:.375rem}
+.wifi-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;cursor:pointer;margin-bottom:2px;background:#343a40;border:1px solid transparent;border-radius:.375rem;transition:all .15s}
+.wifi-item:hover{background:#3d4349;border-color:#495057}
+.wifi-item.sel{background:rgba(13,110,253,.15);border-color:#0d6efd}
+.wifi-item .name{font-size:.9em;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dee2e6}
+.wifi-item .rssi{font-size:.75em;color:#6c757d;margin-left:8px;white-space:nowrap}
 .wifi-item .lock{font-size:.75em;margin-left:4px}
-button,.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:.95em;font-weight:bold;cursor:pointer;color:#fff;margin-top:4px}
-.btn-p{background:#0f3460;color:#00d4ff}
-.btn-ok{background:#00d4ff;color:#1a1a2e}
-.btn-ok:active{background:#00a8cc}
-.btn-test{background:#0f3460;color:#e8a838;margin-top:6px}
-.btn-danger{background:#e74c3c;color:#fff}
-.btn-off{background:#333;color:#aaa;margin-top:8px}
-.msg{text-align:center;padding:8px;border-radius:8px;margin-top:8px;font-size:.85em;display:none}
-.msg.ok{display:block;background:#0a3d2a;color:#4ade80}
-.msg.err{display:block;background:#3d0a0a;color:#f87171}
+button,.btn{width:100%;padding:10px 16px;border:none;border-radius:.375rem;font-size:.9rem;font-weight:600;cursor:pointer;color:#fff;margin-top:6px;transition:all .15s;letter-spacing:.3px}
+button:active,.btn:active{transform:scale(.98)}
+.btn-p{background:#343a40;color:#0d6efd;border:1px solid #495057}
+.btn-p:hover{background:#3d4349}
+.btn-ok{background:#0d6efd;color:#fff}
+.btn-ok:active{background:#0b5ed7}
+.btn-test{background:transparent;color:#ffc107;border:1px solid #ffc107;margin-top:8px}
+.btn-test:active{background:rgba(255,193,7,.1)}
+.btn-danger{background:#dc3545;color:#fff}
+.btn-danger:active{background:#bb2d3b}
+.msg{text-align:center;padding:10px 14px;border-radius:.375rem;margin-top:10px;font-size:.85rem;display:none;font-weight:500}
+.msg.ok{display:block;background:rgba(25,135,84,.15);color:#75b798;border:1px solid rgba(25,135,84,.3)}
+.msg.err{display:block;background:rgba(220,53,69,.15);color:#ea868f;border:1px solid rgba(220,53,69,.3)}
 .pl-row{display:none}
 .pl-row.show{display:block}
-.tabs{display:flex;gap:6px;margin-bottom:10px}
-.tab{flex:1;padding:8px;text-align:center;border-radius:8px;background:#0f3460;color:#aaa;cursor:pointer;font-size:.85em}
-.tab.act{background:#1a3a6e;color:#00d4ff;border:1px solid #00d4ff}
-.r2{display:flex;gap:8px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{flex:1;padding:9px;text-align:center;border-radius:.375rem;background:#343a40;color:#6c757d;cursor:pointer;font-size:.85em;border:1px solid #495057;font-weight:500;transition:all .15s}
+.tab.act{background:rgba(13,110,253,.15);color:#6ea8fe;border-color:#0d6efd}
+.r2{display:flex;gap:10px}
 .r2>div{flex:1}
 .hid{display:none}
-.login-box{max-width:320px;margin:60px auto 0;padding:16px}
-.login-box h1{margin-bottom:24px;text-align:center;color:#00d4ff}
-input[type="file"]{padding:6px;cursor:pointer}
-.modal-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+.login-box{max-width:360px;margin:80px auto 0;padding:20px}
+.login-box h1{margin-bottom:28px;text-align:center;color:#fff;font-size:1.5rem;font-weight:700}
+input[type="file"]{padding:8px;cursor:pointer;font-size:.85rem}
+.modal-bg{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .modal-bg.show{display:flex}
-.modal{background:#16213e;border-radius:12px;padding:20px;max-width:360px;width:90%;max-height:80vh;overflow-y:auto}
-.modal h2{font-size:1em;color:#00d4ff;margin-bottom:14px;text-align:center}
-.irow{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #0f3460;font-size:.85em}
-.irow .il{color:#aaa}
-.irow .iv{color:#eee;font-family:monospace}
-.cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.cbtn{aspect-ratio:1;border-radius:12px;border:2px solid transparent;cursor:pointer;transition:border-color .2s,transform .1s}
-.cbtn:active{transform:scale(.9)}
-.cbtn.act{border-color:#fff}
-.srow{margin-bottom:8px}
-.srow label{display:flex;justify-content:space-between}
-.srow input[type=range]{width:100%;margin-bottom:4px;-webkit-appearance:auto;background:transparent}
-.lprev{width:60px;height:60px;border-radius:50%;margin:0 auto 14px;border:2px solid #333;transition:background-color .2s}
-.chk-row{display:flex;align-items:center;margin-top:6px;margin-bottom:12px;gap:10px}
-.chk-row input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:#00d4ff;flex-shrink:0;-webkit-appearance:auto;appearance:auto}
-.chk-row label{display:inline;margin:0;cursor:pointer;color:#aaa;font-size:.85em;line-height:1.2}
+.modal{background:#2b3035;border:1px solid #495057;border-radius:.5rem;padding:24px;max-width:400px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:1rem;color:#fff;margin-bottom:16px;text-align:center;font-weight:600}
+.irow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #495057;font-size:.875rem}
+.irow .il{color:#6c757d}
+.irow .iv{color:#dee2e6;font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;font-size:.85em}
+.chk-row{display:flex;align-items:center;margin-top:6px;margin-bottom:14px;gap:10px}
+.chk-row input[type="checkbox"]{width:20px;height:20px;margin:0;cursor:pointer;accent-color:#0d6efd;flex-shrink:0;-webkit-appearance:auto;appearance:auto}
+.chk-row label{display:inline;margin:0;cursor:pointer;color:#adb5bd;font-size:.85em;line-height:1.4}
 </style>
 </head><body>
 
@@ -112,13 +110,13 @@ input[type="file"]{padding:6px;cursor:pointer}
 <div class="card">
 <h2>🔘 Botones</h2>
 <div class="tabs">
-<div class="tab act" onclick="swTab(1,this)">Boton 1</div>
-<div class="tab" onclick="swTab(2,this)">Boton 2</div>
+<div class="tab act" onclick="swTab(1,this)">Botón 1</div>
+<div class="tab" onclick="swTab(2,this)">Botón 2</div>
 </div>
 <label>URL</label>
 <input id="burl" placeholder="http://ejemplo.com/accion">
 <div class="r2">
-<div><label>Metodo</label>
+<div><label>Método</label>
 <select id="bmethod" onchange="togPL()">
 <option value="0">GET</option>
 <option value="1">POST</option>
@@ -132,42 +130,9 @@ input[type="file"]{padding:6px;cursor:pointer}
 <label>Payload (JSON)</label>
 <input id="bpayload" placeholder='{"key":"value"}'>
 </div>
-<button class="btn btn-ok" onclick="saveBtn()">Guardar Boton</button>
-<button class="btn btn-test" onclick="testBtn()">Probar Boton</button>
+<button class="btn btn-ok" onclick="saveBtn()">Guardar Botón</button>
+<button class="btn btn-test" onclick="testBtn()">⚡ Probar Botón</button>
 <div id="bmsg" class="msg"></div>
-</div>
-</div>
-
-<!-- LED -->
-<div id="s-led" class="sec">
-<div class="card">
-<h2>💡 LED RGB</h2>
-<div class="lprev" id="lprev"></div>
-<div class="cgrid">
-<div class="cbtn" style="background:#e00" onclick="sLed(40,0,0,this)"></div>
-<div class="cbtn" style="background:#0c0" onclick="sLed(0,40,0,this)"></div>
-<div class="cbtn" style="background:#00e" onclick="sLed(0,0,40,this)"></div>
-<div class="cbtn" style="background:#ee0" onclick="sLed(40,40,0,this)"></div>
-<div class="cbtn" style="background:#e0e" onclick="sLed(40,0,40,this)"></div>
-<div class="cbtn" style="background:#0ee" onclick="sLed(0,40,40,this)"></div>
-<div class="cbtn" style="background:#eee" onclick="sLed(40,40,40,this)"></div>
-<div class="cbtn" style="background:#e80" onclick="sLed(40,20,0,this)"></div>
-</div>
-<div class="srow">
-<label>R <span id="rv">0</span></label>
-<input type="range" id="sr" min="0" max="255" value="0" oninput="updSl()">
-</div>
-<div class="srow">
-<label>G <span id="gv">0</span></label>
-<input type="range" id="sg" min="0" max="255" value="0" oninput="updSl()">
-</div>
-<div class="srow">
-<label>B <span id="bv">0</span></label>
-<input type="range" id="sb" min="0" max="255" value="0" oninput="updSl()">
-</div>
-<button class="btn btn-ok" onclick="applySl()">Aplicar Color</button>
-<button class="btn btn-off" onclick="ledOff()">Apagar LED</button>
-<div id="ledmsg" class="msg"></div>
 </div>
 </div>
 
@@ -219,7 +184,7 @@ input[type="file"]{padding:6px;cursor:pointer}
 
 <div class="card">
 <h2>⚠️ Factory Reset</h2>
-<p style="font-size:.85em;color:#aaa;margin-bottom:10px">Borra toda la configuración y restaura valores de fábrica.</p>
+<p style="font-size:.85em;color:#6c757d;margin-bottom:12px">Borra toda la configuración y restaura valores de fábrica.</p>
 <button class="btn btn-danger" onclick="doFactoryReset()">Factory Reset</button>
 <div id="frmsg" class="msg"></div>
 </div>
@@ -235,7 +200,6 @@ input[type="file"]{padding:6px;cursor:pointer}
 <nav class="nav">
 <div class="nav-item act" onclick="go('wifi',this)"><span class="ico">📶</span>WiFi</div>
 <div class="nav-item" onclick="go('btn',this)"><span class="ico">🔘</span>Botones</div>
-<div class="nav-item" onclick="go('led',this)"><span class="ico">💡</span>LED</div>
 <div class="nav-item" onclick="go('sys',this)"><span class="ico">⚙️</span>Sistema</div>
 </nav>
 </div>
@@ -243,7 +207,7 @@ input[type="file"]{padding:6px;cursor:pointer}
 <div id="netmodal" class="modal-bg" onclick="if(event.target===this)closeNet()">
 <div class="modal">
 <h2>📡 Info de Red</h2>
-<div id="netbody"><div style="text-align:center;color:#aaa;padding:20px">Cargando...</div></div>
+<div id="netbody"><div style="text-align:center;color:#6c757d;padding:20px">Cargando...</div></div>
 <button class="btn btn-p" onclick="closeNet()">Cerrar</button>
 </div>
 </div>
@@ -271,9 +235,9 @@ function togVis(id){var p=$(id);p.type=p.type==='password'?'text':'password';}
 function togPL(){$('pl-row').classList.toggle('show',$('bmethod').value==='1');}
 function msg(id,ok,t){var m=$(id);m.className='msg '+(ok?'ok':'err');m.textContent=t;setTimeout(function(){m.className='msg';},4000);}
 function scanWifi(){
-var l=$('wlist');l.innerHTML='<div style="text-align:center;padding:10px;color:#aaa">Buscando...</div>';
+var l=$('wlist');l.innerHTML='<div style="text-align:center;padding:12px;color:#6c757d">Buscando...</div>';
 af('/api/scan').then(function(r){return r.json()}).then(function(d){
-if(!d.length){l.innerHTML='<div style="text-align:center;padding:10px;color:#aaa">No se encontraron redes</div>';return;}
+if(!d.length){l.innerHTML='<div style="text-align:center;padding:12px;color:#6c757d">No se encontraron redes</div>';return;}
 l.innerHTML='';d.forEach(function(ap){
 var e=document.createElement('div');e.className='wifi-item';
 var s=ap.rssi>-50?'▂▄▆█':ap.rssi>-70?'▂▄▆_':'▂▄__';
@@ -361,38 +325,14 @@ if(d.ok){msg('omsg',1,'Actualizado. Reiniciando...');setTimeout(function(){locat
 else msg('omsg',0,'Error al actualizar');
 }).catch(function(){msg('omsg',0,'Error de conexion');});
 }
-function sLed(r,g,b,el){
-document.querySelectorAll('.cbtn').forEach(function(c){c.classList.remove('act')});
-if(el)el.classList.add('act');
-$('sr').value=r;$('sg').value=g;$('sb').value=b;
-$('rv').textContent=r;$('gv').textContent=g;$('bv').textContent=b;
-$('lprev').style.backgroundColor='rgb('+r+','+g+','+b+')';
-af('/api/led',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({r:r,g:g,b:b})
-}).catch(function(){msg('ledmsg',0,'Error');});
-}
-function updSl(){
-var r=+$('sr').value,g=+$('sg').value,b=+$('sb').value;
-$('rv').textContent=r;$('gv').textContent=g;$('bv').textContent=b;
-$('lprev').style.backgroundColor='rgb('+r+','+g+','+b+')';
-document.querySelectorAll('.cbtn').forEach(function(c){c.classList.remove('act')});
-}
-function applySl(){sLed(+$('sr').value,+$('sg').value,+$('sb').value,null);}
-function ledOff(){
-document.querySelectorAll('.cbtn').forEach(function(c){c.classList.remove('act')});
-$('lprev').style.backgroundColor='transparent';
-$('sr').value=0;$('sg').value=0;$('sb').value=0;
-$('rv').textContent='0';$('gv').textContent='0';$('bv').textContent='0';
-af('/api/led',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({off:true})
-}).catch(function(){msg('ledmsg',0,'Error');});
-}
 function showNet(){
 $('netmodal').classList.add('show');
-$('netbody').innerHTML='<div style="text-align:center;color:#aaa;padding:20px">Cargando...</div>';
+$('netbody').innerHTML='<div style="text-align:center;color:#6c757d;padding:20px">Cargando...</div>';
 af('/api/netinfo').then(function(r){return r.json()}).then(function(d){
 var h='',rows=[['SSID',d.ssid||'No conectado'],['RSSI',d.rssi?d.rssi+' dBm':'\u2014'],['IP',d.ip||'0.0.0.0'],['Mascara',d.mask||'\u2014'],['Gateway',d.gw||'\u2014'],['DNS',d.dns||'\u2014'],['MAC',d.mac||'\u2014'],['IP AP',d.ap_ip||'\u2014']];
 rows.forEach(function(r){h+='<div class="irow"><span class="il">'+r[0]+'</span><span class="iv">'+r[1]+'</span></div>';});
 $('netbody').innerHTML=h;
-}).catch(function(){$('netbody').innerHTML='<div style="text-align:center;color:#f87171;padding:20px">Error</div>';});
+}).catch(function(){$('netbody').innerHTML='<div style="text-align:center;color:#ea868f;padding:20px">Error</div>';});
 }
 function closeNet(){$('netmodal').classList.remove('show');}
 $('lpass').addEventListener('keyup',function(e){if(e.key==='Enter')doLogin();});

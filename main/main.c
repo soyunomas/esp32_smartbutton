@@ -14,6 +14,32 @@
 #include "driver/gpio.h"
 
 void app_main(void) {
+    // Detección temprana del botón de wakeup: leemos GPIO ANTES de cualquier
+    // init para capturar el nivel mientras el usuario aún pulsa el botón
+    bool is_wakeup = (esp_reset_reason() == ESP_RST_DEEPSLEEP);
+    int wakeup_btn = 0;
+
+    if (is_wakeup) {
+        int b1 = gpio_get_level(GPIO_NUM_4);
+        int b2 = gpio_get_level(GPIO_NUM_5);
+        uint64_t wakeup_pin_mask = esp_sleep_get_gpio_wakeup_status();
+
+        if (wakeup_pin_mask & (1ULL << 5)) {
+            wakeup_btn = 2;
+        } else if (wakeup_pin_mask & (1ULL << 4)) {
+            wakeup_btn = 1;
+        } else if (b2 == 0) {
+            wakeup_btn = 2;
+        } else if (b1 == 0) {
+            wakeup_btn = 1;
+        } else {
+            wakeup_btn = 1;
+        }
+
+        ESP_LOGI("MAIN", "Woke up from deep sleep. BTN: %d (mask: %llu, GPIO4: %d, GPIO5: %d)",
+                 wakeup_btn, (unsigned long long)wakeup_pin_mask, b1, b2);
+    }
+
     // Inicialización de sistema
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -35,33 +61,8 @@ void app_main(void) {
     admin_config_t admin;
     app_nvs_get_admin(&admin);
 
-    int wakeup_btn = 0;
-    
-    // Solución definitiva: Usamos el Reset Reason del Hardware, no la causa del sleep.
-    // Esto funciona 100% perfecto en todas las versiones del C6
-    bool is_wakeup = (esp_reset_reason() == ESP_RST_DEEPSLEEP);
-    
-    if (admin.deep_sleep) {
-        if (is_wakeup) {
-            uint64_t wakeup_pin_mask = esp_sleep_get_gpio_wakeup_status();
-            
-            if (wakeup_pin_mask & (1ULL << 5)) {
-                wakeup_btn = 2;
-            } else if (wakeup_pin_mask & (1ULL << 4)) {
-                wakeup_btn = 1;
-            } 
-            
-            // Failsafe Vital: Si el software del chip falla al darnos la máscara,
-            // sabemos que sí o sí lo despertó un botón. Forzamos el lanzamiento.
-            if (wakeup_btn == 0) {
-                if (gpio_get_level(GPIO_NUM_5) == 0) wakeup_btn = 2;
-                else wakeup_btn = 1; // Asumimos BTN1 para no perder la petición
-            }
-            
-            ESP_LOGI("MAIN", "Woke up from deep sleep. BTN: %d (mask: %llu)", wakeup_btn, (unsigned long long)wakeup_pin_mask);
-        } else {
-            ESP_LOGI("MAIN", "Normal boot. Will stay awake for 3 mins before sleeping.");
-        }
+    if (admin.deep_sleep && !is_wakeup) {
+        ESP_LOGI("MAIN", "Normal boot. Will stay awake for 3 mins before sleeping.");
     }
 
     if (!configured) {
